@@ -15,12 +15,22 @@ type Binder struct {
 
 func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) {
 	t := reflect.TypeOf(intf)
-	b.providers[t] = &provider{constructor, true}
+	if b.providers[t] == nil && b.singletons[t] == nil {
+		b.providers[t] = &provider{constructor, true}
+	} else {
+		panic("duplicated bind for " + t.String())
+	}
+
 }
 
 func (b *Binder) BindSingleton(intf interface{}, instance interface{}) {
 	t := reflect.TypeOf(intf)
-	b.singletons[t] = instance
+	if b.providers[t] == nil && b.singletons[t] == nil {
+		b.singletons[t] = instance
+	} else {
+		panic("duplicated bind for " + t.String())
+	}
+
 }
 
 type AbstractModule interface {

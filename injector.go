@@ -1,6 +1,7 @@
 package di
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -94,7 +95,12 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 
 	binder := newBinder()
 	for _, m := range moduleNames {
-		implements.implements[m].Configure(binder)
+		module := implements.implements[m]
+		if module != nil {
+			implements.implements[m].Configure(binder)
+		} else {
+			panic(fmt.Sprintf("module %s is not implemented", m))
+		}
 	}
 
 	return &InjectorImpl{binder, make(map[reflect.Type]interface{}), make(map[string]string)}

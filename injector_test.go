@@ -13,6 +13,9 @@ type MyModule struct {
 type MyModule2 struct {
 }
 
+type MyModuleDup struct {
+}
+
 type Hello interface {
 	Hello()
 }
@@ -36,6 +39,13 @@ func (h *HelloWorld) Hello() {
 	fmt.Printf("%s : this is Hello World. say hello world\n", h.db.get())
 }
 
+type HelloGura struct {
+}
+
+func (h *HelloGura) Hello() {
+	fmt.Printf("Hello Gura\n")
+}
+
 func (*MyModule) Configure(binder *di.Binder) {
 	binder.BindProvider((*Hello)(nil), func(inj di.Injector) interface{} {
 		configfile := inj.GetProperty("config.file")
@@ -43,6 +53,10 @@ func (*MyModule) Configure(binder *di.Binder) {
 		db := inj.GetInstance((*ConfigDB)(nil)).(ConfigDB)
 		return &HelloWorld{db}
 	})
+}
+
+func (*MyModuleDup) Configure(binder *di.Binder) {
+	binder.BindSingleton((*Hello)(nil), &HelloGura{})
 }
 
 // func (*MyModule2) Configure(binder *di.Binder) {
@@ -72,4 +86,73 @@ func TestInjector(t *testing.T) {
 
 	db := injector.GetInstance((*ConfigDB)(nil)).(ConfigDB)
 	fmt.Printf("config = %s\n", db.get())
+}
+
+func TestDuplicatedBind(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule", &MyModule{})
+	implements.AddImplement("MyModule2", &MyModule2{})
+	implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"MyModule", "MyModule2", "MyModuleDup"}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins.Hello()
+
+	fmt.Printf("this code should not execute\n")
+}
+
+func TestNotBind(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+	// implements.AddImplement("MyModule", &MyModule{})
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins.Hello()
+
+	fmt.Printf("this code should not execute\n")
+}
+
+func TestNotImplemented(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+	// implements.AddImplement("MyModule", &MyModule{})
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"MyModule"}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins.Hello()
+
+	fmt.Printf("this code should not execute\n")
 }
