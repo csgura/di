@@ -11,8 +11,9 @@ type Binding struct {
 	isEager     bool
 }
 
-func (this *Binding) AsEagerSingleton() {
+func (this *Binding) AsEagerSingleton() *Binding {
 	this.isEager = true
+	return this
 }
 
 type Binder struct {
