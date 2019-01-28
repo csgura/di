@@ -6,11 +6,14 @@ import (
 
 type Injector interface {
 	GetInstance(intf interface{}) interface{}
+	GetProperty(propName string) string
+	SetProperty(propName string, value string)
 }
 
 type InjectorImpl struct {
 	binder     *Binder
 	singletons map[reflect.Type]interface{}
+	props      map[string]string
 }
 
 type InjectorContext struct {
@@ -23,6 +26,22 @@ func (this *InjectorImpl) GetInstance(intf interface{}) interface{} {
 	//fmt.Println("impl getIns")
 	context := InjectorContext{this, make(map[reflect.Type]bool), nil}
 	return context.GetInstance(intf)
+}
+
+func (this *InjectorImpl) GetProperty(propName string) string {
+	return this.props[propName]
+}
+
+func (this *InjectorImpl) SetProperty(propName string, value string) {
+	this.props[propName] = value
+}
+
+func (this *InjectorContext) GetProperty(propName string) string {
+	return this.injector.GetProperty(propName)
+}
+
+func (this *InjectorContext) SetProperty(propName string, value string) {
+	this.injector.SetProperty(propName, value)
 }
 
 func (this *InjectorContext) GetInstance(intf interface{}) interface{} {
@@ -78,5 +97,5 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 		implements.implements[m].Configure(binder)
 	}
 
-	return &InjectorImpl{binder, make(map[reflect.Type]interface{})}
+	return &InjectorImpl{binder, make(map[reflect.Type]interface{}), make(map[string]string)}
 }

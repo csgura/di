@@ -38,6 +38,8 @@ func (h *HelloWorld) Hello() {
 
 func (*MyModule) Configure(binder *di.Binder) {
 	binder.BindProvider((*Hello)(nil), func(inj di.Injector) interface{} {
+		configfile := inj.GetProperty("config.file")
+		fmt.Printf("configfile = %s\n", configfile)
 		db := inj.GetInstance((*ConfigDB)(nil)).(ConfigDB)
 		return &HelloWorld{db}
 	})
@@ -63,6 +65,7 @@ func TestInjector(t *testing.T) {
 	loadingModuleList := []string{"MyModule", "MyModule2"}
 
 	injector := di.NewInjector(implements, loadingModuleList)
+	injector.SetProperty("config.file", "application.conf")
 
 	ins := injector.GetInstance((*Hello)(nil)).(Hello)
 	ins.Hello()
