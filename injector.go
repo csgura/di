@@ -106,6 +106,9 @@ func (this *InjectorContext) GetInstance(intf interface{}) interface{} {
 func NewInjector(implements *Implements, moduleNames []string) Injector {
 
 	binder := newBinder()
+	for _, m := range implements.just {
+		m.Configure(binder)
+	}
 	for _, m := range moduleNames {
 		module := implements.implements[m]
 		if module != nil {

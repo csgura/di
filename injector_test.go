@@ -201,3 +201,20 @@ func TestEager(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 }
+
+func TestJustIn(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindSingleton((*Hello)(nil), &HelloGura{})
+	})
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins.Hello()
+}
