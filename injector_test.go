@@ -3,6 +3,7 @@ package di_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/csgura/di"
 )
@@ -69,6 +70,35 @@ func (*MyModule2) Configure(binder *di.Binder) {
 		//h.Hello()
 		return &MemoryConfigDB{}
 	})
+}
+
+type EagerModule struct {
+}
+
+type EagerRun interface {
+	Run()
+}
+
+type EagerunImpl struct {
+}
+
+func (this *EagerunImpl) Run() {
+
+	for {
+		time.Sleep(1 * time.Second)
+		fmt.Println("eager work")
+	}
+}
+func (*EagerModule) Configure(binder *di.Binder) {
+	binder.BindProvider((*EagerRun)(nil), func(inj di.Injector) interface{} {
+
+		fmt.Printf("EagerModule configured\n")
+		//h := inj.GetInstance((*Hello)(nil)).(Hello)
+		//h.Hello()
+		ret := &EagerunImpl{}
+		go func() { ret.Run() }()
+		return ret
+	}).AsEagerSingleton()
 }
 
 func TestInjector(t *testing.T) {
@@ -155,4 +185,19 @@ func TestNotImplemented(t *testing.T) {
 	ins.Hello()
 
 	fmt.Printf("this code should not execute\n")
+}
+
+func TestEager(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule", &EagerModule{})
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"MyModule"}
+
+	di.NewInjector(implements, loadingModuleList)
+
+	time.Sleep(3 * time.Second)
+
 }

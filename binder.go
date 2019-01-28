@@ -4,29 +4,37 @@ import (
 	"reflect"
 )
 
-type provider struct {
+type Binding struct {
 	provider    func(injector Injector) interface{}
+	instance    interface{}
 	isSingleton bool
-}
-type Binder struct {
-	providers  map[reflect.Type]*provider
-	singletons map[reflect.Type]interface{}
+	isEager     bool
 }
 
-func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) {
+func (this *Binding) AsEagerSingleton() {
+	this.isEager = true
+}
+
+type Binder struct {
+	providers map[reflect.Type]*Binding
+}
+
+func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) *Binding {
 	t := reflect.TypeOf(intf)
-	if b.providers[t] == nil && b.singletons[t] == nil {
-		b.providers[t] = &provider{constructor, true}
+	if b.providers[t] == nil {
+		b.providers[t] = &Binding{constructor, nil, true, false}
+		return b.providers[t]
 	} else {
 		panic("duplicated bind for " + t.String())
 	}
 
 }
 
-func (b *Binder) BindSingleton(intf interface{}, instance interface{}) {
+func (b *Binder) BindSingleton(intf interface{}, instance interface{}) *Binding {
 	t := reflect.TypeOf(intf)
-	if b.providers[t] == nil && b.singletons[t] == nil {
-		b.singletons[t] = instance
+	if b.providers[t] == nil {
+		b.providers[t] = &Binding{nil, instance, true, false}
+		return b.providers[t]
 	} else {
 		panic("duplicated bind for " + t.String())
 	}
@@ -39,7 +47,6 @@ type AbstractModule interface {
 
 func newBinder() *Binder {
 	ret := new(Binder)
-	ret.providers = make(map[reflect.Type]*provider)
-	ret.singletons = make(map[reflect.Type]interface{})
+	ret.providers = make(map[reflect.Type]*Binding)
 	return ret
 }
