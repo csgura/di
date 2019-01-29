@@ -2,6 +2,7 @@ package di_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -70,6 +71,27 @@ func (*MyModule2) Configure(binder *di.Binder) {
 		//h.Hello()
 		return &MemoryConfigDB{}
 	})
+}
+
+type MultipleInstance struct {
+	sequence int
+}
+
+func (m *MultipleInstance) get() string {
+	return strconv.Itoa(m.sequence)
+}
+
+type MyModuleNonSingleton struct {
+	sequence int
+}
+
+func (r *MyModuleNonSingleton) Configure(binder *di.Binder) {
+	binder.BindProvider((*ConfigDB)(nil), func(inj di.Injector) interface{} {
+		//h := inj.GetInstance((*Hello)(nil)).(Hello)
+		//h.Hello()
+		r.sequence++
+		return &MultipleInstance{r.sequence}
+	}).AsNonSingleton()
 }
 
 type EagerModule struct {
@@ -187,21 +209,6 @@ func TestNotImplemented(t *testing.T) {
 	fmt.Printf("this code should not execute\n")
 }
 
-func TestEager(t *testing.T) {
-
-	implements := di.NewImplements()
-	implements.AddImplement("MyModule", &EagerModule{})
-	// implements.AddImplement("MyModule2", &MyModule2{})
-	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
-
-	loadingModuleList := []string{"MyModule"}
-
-	di.NewInjector(implements, loadingModuleList)
-
-	time.Sleep(3 * time.Second)
-
-}
-
 func TestJustIn(t *testing.T) {
 
 	implements := di.NewImplements()
@@ -217,4 +224,37 @@ func TestJustIn(t *testing.T) {
 
 	ins := injector.GetInstance((*Hello)(nil)).(Hello)
 	ins.Hello()
+}
+
+func TestNonSingleton(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule2", &MyModuleNonSingleton{})
+
+	loadingModuleList := []string{"MyModule2"}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	db := injector.GetInstance((*ConfigDB)(nil)).(ConfigDB)
+	fmt.Printf("config = %p, %s\n", db, db.get())
+
+	db2 := injector.GetInstance((*ConfigDB)(nil)).(ConfigDB)
+	fmt.Printf("config = %p, %s\n", db2, db2.get())
+
+	if db.get() == db2.get() {
+		t.Errorf("new instance not generated")
+	}
+}
+func TestEager(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule", &EagerModule{})
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"MyModule"}
+
+	di.NewInjector(implements, loadingModuleList)
+
+	time.Sleep(3 * time.Second)
+
 }

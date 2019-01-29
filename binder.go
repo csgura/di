@@ -16,6 +16,16 @@ func (this *Binding) AsEagerSingleton() *Binding {
 	return this
 }
 
+func (this *Binding) AsNonSingleton() *Binding {
+	if this.provider != nil {
+		this.isSingleton = false
+	} else {
+		panic("call BindProvider to make non-singleton")
+	}
+
+	return this
+}
+
 type Binder struct {
 	providers map[reflect.Type]*Binding
 }
