@@ -12,9 +12,8 @@ type Injector interface {
 }
 
 type InjectorImpl struct {
-	binder     *Binder
-	singletons map[reflect.Type]interface{}
-	props      map[string]string
+	binder *Binder
+	props  map[string]string
 }
 
 type InjectorContext struct {
@@ -70,16 +69,13 @@ func (this *InjectorContext) getInstanceByType(t reflect.Type) interface{} {
 	p := this.injector.binder.providers[t]
 	if p != nil {
 		if p.isSingleton {
-			ret := this.injector.singletons[t]
+
+			ret := p.instance
 			if ret == nil {
 				if p.provider != nil {
 					ret = p.provider(this)
-					this.injector.singletons[t] = ret
-				} else if p.instance != nil {
-					ret = p.instance
-					this.injector.singletons[t] = p.instance
+					p.instance = ret
 				}
-
 			}
 			this.stack = this.stack[0 : len(this.stack)-1]
 			delete(this.loopCheck, t)
@@ -117,7 +113,7 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 			panic(fmt.Sprintf("module %s is not implemented", m))
 		}
 	}
-	injector := &InjectorImpl{binder, make(map[reflect.Type]interface{}), make(map[string]string)}
+	injector := &InjectorImpl{binder, make(map[string]string)}
 
 	for t := range binder.providers {
 		if binder.providers[t].isEager {
