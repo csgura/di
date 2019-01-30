@@ -35,7 +35,7 @@ func (this *N32ControllerActorModule) Configure(binder *di.Binder) {
         telescopicDao := injector.GetInstance((*dao.TelescopicFqdnDao)(nil)).(dao.TelescopicFqdnDao)   
         cacheFactory := injector.GetInstance((*caches.CacheFactory)(nil)).(caches.CacheFactory)
  
-        return controlactor.New(cfg, telescopicDao, cacheFactory, tlsclient)
+        return controlactor.New(cfg, telescopicDao, cacheFactory)
     })
 }
 ```
