@@ -1,5 +1,5 @@
 # gihub.com/csgura/di
-Guice Style Dependency Injection Library for Golang
+[Guice](https://github.com/google/guice/wiki/Motivation) Style Dependency Injection Library for Golang
 
 # 1.Binding
 ```go
