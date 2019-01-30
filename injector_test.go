@@ -104,12 +104,10 @@ type EagerRun interface {
 type EagerunImpl struct {
 }
 
-func (this *EagerunImpl) Run() {
+var eagerResult string = ""
 
-	for {
-		time.Sleep(1 * time.Second)
-		fmt.Println("eager work")
-	}
+func (this *EagerunImpl) Run() {
+	eagerResult = "done"
 }
 func (*EagerModule) Configure(binder *di.Binder) {
 	binder.BindProvider((*EagerRun)(nil), func(inj di.Injector) interface{} {
@@ -255,6 +253,9 @@ func TestEager(t *testing.T) {
 
 	di.NewInjector(implements, loadingModuleList)
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(100 * time.Millisecond)
+	if eagerResult != "done" {
+		t.Errorf("EagerSingleton not created")
+	}
 
 }
