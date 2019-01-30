@@ -2,6 +2,7 @@ package di_test
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"testing"
 	"time"
@@ -258,4 +259,59 @@ func TestEager(t *testing.T) {
 		t.Errorf("EagerSingleton not created")
 	}
 
+}
+
+type CloserModule struct {
+}
+
+type Closeable1 struct {
+}
+
+type Closeable2 struct {
+}
+
+type NotCloseable struct {
+}
+
+func (*Closeable1) Close() error {
+	fmt.Println("Close Closeable1")
+	return nil
+}
+
+func (*Closeable2) Close() error {
+	fmt.Println("Close Closeable2")
+	return nil
+}
+
+func (*CloserModule) Configure(binder *di.Binder) {
+	binder.BindSingleton((*Closeable1)(nil), &Closeable1{})
+	binder.BindSingleton((*Closeable2)(nil), &Closeable2{})
+	binder.BindSingleton((*NotCloseable)(nil), &NotCloseable{})
+}
+
+func TestGetInstancesOf(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule", &CloserModule{})
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"MyModule"}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	list := injector.GetInstancesOf((*io.Closer)(nil))
+
+	//	list := injector.GetInstancesOf((*Closeable1)(nil))
+
+	count := 0
+	for _, ins := range list {
+		count++
+		c := ins.(io.Closer)
+		c.Close()
+	}
+
+	if count != 2 {
+		t.Errorf("GetInstanceOf( io.Close ) failed. close count = %d", count)
+	}
 }

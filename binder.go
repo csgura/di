@@ -52,6 +52,35 @@ func (b *Binder) BindSingleton(intf interface{}, instance interface{}) *Binding 
 
 }
 
+func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			eq = false
+		}
+	}()
+	eq = realType.Implements(interfaceType)
+	return eq
+}
+func (b *Binder) getInstancesOf(intf interface{}) []interface{} {
+	var ret []interface{} = nil
+	interfaceType := reflect.TypeOf(intf).Elem()
+
+	for k := range b.providers {
+		p := b.providers[k]
+		if p.instance != nil {
+			realType := reflect.TypeOf(p.instance)
+			//fmt.Printf("interfaceType = %v , realType = %v\n", interfaceType, realType)
+			//fmt.Printf("implements = %t \n", realType.Implements(interfaceType))
+			//fmt.Printf("assign = %t \n", realType.AssignableTo(interfaceType))
+			//fmt.Printf("assign = %t \n", interfaceType.AssignableTo(realType))
+			if isImplements(realType, interfaceType) {
+				ret = append(ret, p.instance)
+			}
+		}
+	}
+	return ret
+}
+
 type AbstractModule interface {
 	Configure(binder *Binder)
 }

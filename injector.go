@@ -9,6 +9,8 @@ type Injector interface {
 	GetInstance(intf interface{}) interface{}
 	GetProperty(propName string) string
 	SetProperty(propName string, value string)
+
+	GetInstancesOf(intf interface{}) []interface{}
 }
 
 type InjectorImpl struct {
@@ -26,6 +28,11 @@ func (this *InjectorImpl) GetInstance(intf interface{}) interface{} {
 	//fmt.Println("impl getIns")
 	context := InjectorContext{this, make(map[reflect.Type]bool), nil}
 	return context.GetInstance(intf)
+}
+
+func (this *InjectorImpl) GetInstancesOf(intf interface{}) []interface{} {
+	//fmt.Println("impl getIns")
+	return this.binder.getInstancesOf(intf)
 }
 
 func (this *InjectorImpl) getInstanceByType(t reflect.Type) interface{} {
@@ -97,6 +104,11 @@ func (this *InjectorContext) GetInstance(intf interface{}) interface{} {
 	return this.getInstanceByType(t)
 	//fmt.Printf("type = %s\n", t.String())
 
+}
+
+func (this *InjectorContext) GetInstancesOf(intf interface{}) []interface{} {
+	//fmt.Println("impl getIns")
+	return this.injector.binder.getInstancesOf(intf)
 }
 
 func NewInjector(implements *Implements, moduleNames []string) Injector {
