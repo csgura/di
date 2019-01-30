@@ -2,6 +2,13 @@
 Guice Style Dependency Injection Library for Golang
 
 # 1.Binding
+```go
+type AbstractModule interface {
+	Configure(binder *Binder)
+}
+```
+Implement the AbstractModule
+
 ## 1.1 singletone binding
 If a module has no dependency with other modules
 ```go
