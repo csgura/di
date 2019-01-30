@@ -128,7 +128,7 @@ n32controller := injector.GetInstance((*controller.N32Controller)(nil)).(control
 ret, err := n32controller.GetContextInfo("somekey")
 ```
 
-# 5. Clear Instances
+# 5. Instances Clearing 
 If you want to call Close() function of every singleton object that implements io.Closer and created by injector
 ```go
 list := injector.GetInstancesOf((*io.Closer)(nil))
