@@ -69,12 +69,22 @@ func (b *Binder) getInstancesOf(intf interface{}) []interface{} {
 		p := b.providers[k]
 		if p.instance != nil {
 			realType := reflect.TypeOf(p.instance)
-			//fmt.Printf("interfaceType = %v , realType = %v\n", interfaceType, realType)
+			//fmt.Printf("interfaceType = %v,%d , realType = %v,%d\n", interfaceType, interfaceType.Kind(), realType, realType.Kind())
 			//fmt.Printf("implements = %t \n", realType.Implements(interfaceType))
 			//fmt.Printf("assign = %t \n", realType.AssignableTo(interfaceType))
 			//fmt.Printf("assign = %t \n", interfaceType.AssignableTo(realType))
-			if isImplements(realType, interfaceType) {
-				ret = append(ret, p.instance)
+			if interfaceType.Kind() == reflect.Interface {
+				if isImplements(realType, interfaceType) {
+					ret = append(ret, p.instance)
+				}
+			} else {
+				if realType.Kind() == reflect.Ptr {
+					if interfaceType == realType.Elem() {
+						ret = append(ret, p.instance)
+					}
+				} else if interfaceType == realType {
+					ret = append(ret, p.instance)
+				}
 			}
 		}
 	}

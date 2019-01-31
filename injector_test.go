@@ -302,8 +302,6 @@ func TestGetInstancesOf(t *testing.T) {
 
 	list := injector.GetInstancesOf((*io.Closer)(nil))
 
-	//	list := injector.GetInstancesOf((*Closeable1)(nil))
-
 	count := 0
 	for _, ins := range list {
 		count++
@@ -314,4 +312,59 @@ func TestGetInstancesOf(t *testing.T) {
 	if count != 2 {
 		t.Errorf("GetInstanceOf( io.Close ) failed. close count = %d", count)
 	}
+	list = injector.GetInstancesOf((*Closeable1)(nil))
+	count = 0
+	for _, ins := range list {
+		count++
+		c := ins.(io.Closer)
+		c.Close()
+	}
+
+	if count != 1 {
+		t.Errorf("GetInstanceOf( Closeable1 ) failed. close count = %d", count)
+	}
+
+}
+
+type Encoder func(data string) string
+
+type EncoderModule struct {
+}
+
+func (*EncoderModule) Configure(binder *di.Binder) {
+	binder.BindProvider((*Encoder)(nil), func(injector di.Injector) interface{} {
+		ret := func(data string) string {
+			return "hello : " + data
+		}
+
+		return (Encoder)(ret)
+	}).AsEagerSingleton()
+}
+
+func TestFunctionBind(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule", &CloserModule{})
+	implements.AddImplement("EncoderModule", &EncoderModule{})
+
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"MyModule", "EncoderModule"}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+
+	list := injector.GetInstancesOf((*Encoder)(nil))
+
+	count := 0
+	for _, ins := range list {
+		count++
+		c := ins.(Encoder)
+		fmt.Printf("after encode = %s\n", c("world"))
+	}
+
+	if count != 1 {
+		t.Errorf("GetInstanceOf( func() {} ) failed. return count = %d", count)
+	}
+
 }
