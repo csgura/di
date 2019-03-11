@@ -3,6 +3,7 @@ package di
 import (
 	"fmt"
 	"reflect"
+	"time"
 )
 
 type Injector interface {
@@ -135,4 +136,21 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 		}
 	}
 	return injector
+}
+
+func NewInjectorWithTimeout(implements *Implements, moduleNames []string, timeout time.Duration) Injector {
+	ch := make(chan Injector)
+
+	go func() {
+		ret := NewInjector(implements, moduleNames)
+		ch <- ret
+	}()
+
+	tick := time.Tick(timeout)
+	select {
+	case injector := <-ch:
+		return injector
+	case <-tick:
+		panic(fmt.Sprintf("Creation failed within the time limit : %d", timeout))
+	}
 }
