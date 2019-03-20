@@ -130,7 +130,6 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 
 	for t := range binder.providers {
 		if binder.providers[t].isEager {
-			fmt.Printf("Eager singleton %v will be created\n", t)
 			injector.getInstanceByType(t)
 			//fmt.Printf("eager singleton %v -> %v\n", t, ret)
 		}
