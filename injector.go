@@ -145,11 +145,11 @@ func NewInjectorWithTimeout(implements *Implements, moduleNames []string, timeou
 		ch <- ret
 	}()
 
-	tick := time.Tick(timeout)
+	timer := time.NewTimer(timeout)
 	select {
 	case injector := <-ch:
 		return injector
-	case <-tick:
+	case <-timer.C:
 		panic(fmt.Sprintf("Creation failed within the time limit : %d", timeout))
 	}
 }
