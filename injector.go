@@ -115,9 +115,14 @@ func (this *InjectorContext) GetInstancesOf(intf interface{}) []interface{} {
 func NewInjector(implements *Implements, moduleNames []string) Injector {
 
 	binder := newBinder()
-	for _, m := range implements.just {
-		m.Configure(binder)
+
+	binder.ignoreDuplicate = true
+	for i := len(implements.just) - 1; i >= 0; i-- {
+		implements.just[i].Configure(binder)
 	}
+
+	binder.ignoreDuplicate = false
+
 	for _, m := range moduleNames {
 		module := implements.implements[m]
 		if module != nil {

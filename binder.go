@@ -27,7 +27,8 @@ func (this *Binding) AsNonSingleton() *Binding {
 }
 
 type Binder struct {
-	providers map[reflect.Type]*Binding
+	providers       map[reflect.Type]*Binding
+	ignoreDuplicate bool
 }
 
 func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) *Binding {
@@ -36,7 +37,11 @@ func (b *Binder) BindProvider(intf interface{}, constructor func(injector Inject
 		b.providers[t] = &Binding{constructor, nil, true, false}
 		return b.providers[t]
 	} else {
-		panic("duplicated bind for " + t.String())
+		if b.ignoreDuplicate {
+			return b.providers[t]
+		} else {
+			panic("duplicated bind for " + t.String())
+		}
 	}
 
 }
@@ -47,9 +52,12 @@ func (b *Binder) BindSingleton(intf interface{}, instance interface{}) *Binding 
 		b.providers[t] = &Binding{nil, instance, true, false}
 		return b.providers[t]
 	} else {
-		panic("duplicated bind for " + t.String())
+		if b.ignoreDuplicate {
+			return b.providers[t]
+		} else {
+			panic("duplicated bind for " + t.String())
+		}
 	}
-
 }
 
 func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
