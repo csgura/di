@@ -382,7 +382,7 @@ func (r *FirstModule) Configure(binder *di.Binder) {
 		createdOrder = append(createdOrder, "FirstModule")
 		f := First(1)
 		return &f
-	}).ShouldCreatedBefore((*Second)(nil))
+	}).ShouldCreateBefore((*Second)(nil))
 }
 
 func (r *SecondModule) Configure(binder *di.Binder) {
@@ -418,11 +418,11 @@ func TestBindOrder(t *testing.T) {
 type FirstModuleFallback struct{}
 
 func (r *FirstModuleFallback) Configure(binder *di.Binder) {
-	binder.Bind((*First)(nil)).IfNotBinded().ToProvider(func(injector di.Injector) interface{} {
+	binder.IfNotBinded((*First)(nil)).ToProvider(func(injector di.Injector) interface{} {
 		createdOrder = append(createdOrder, "FirstModuleFallback")
 		f := First(1)
 		return &f
-	}).ShouldCreatedBefore((*Second)(nil))
+	}).ShouldCreateBefore((*Second)(nil))
 }
 
 func TestBindFallback(t *testing.T) {

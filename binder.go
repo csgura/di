@@ -16,12 +16,6 @@ type Binding struct {
 	isFallback  bool
 }
 
-// IfNotBinded is used default fallback binding
-func (b *Binding) IfNotBinded() *Binding {
-	b.isFallback = true
-	return b
-}
-
 // ToInstance binds type to singleton instance
 func (b *Binding) ToInstance(instance interface{}) *Binding {
 	b.instance = instance
@@ -53,10 +47,10 @@ func (b *Binding) AsNonSingleton() *Binding {
 	return b
 }
 
-// ShouldCreatedBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
-func (b *Binding) ShouldCreatedBefore(tpe interface{}) *Binding {
+// ShouldCreateBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
+func (b *Binding) ShouldCreateBefore(tpe interface{}) *Binding {
 
-	b.binder.shouldCreatedBefore(tpe, b)
+	b.binder.shouldCreateBefore(tpe, b)
 	return b
 }
 
@@ -68,7 +62,7 @@ type Binder struct {
 	ignoreDuplicate   bool
 }
 
-func (b *Binder) shouldCreatedBefore(intf interface{}, binding *Binding) {
+func (b *Binder) shouldCreateBefore(intf interface{}, binding *Binding) {
 	t := reflect.TypeOf(intf)
 	list := b.creatingBefore[t]
 
@@ -83,6 +77,17 @@ func (b *Binder) Bind(tpe interface{}) *Binding {
 		binder:      b,
 		tpe:         t,
 		isSingleton: true,
+	}
+}
+
+// IfNotBinded returns Binding that will used if there are no other binding for tpe type
+func (b *Binder) IfNotBinded(tpe interface{}) *Binding {
+	t := reflect.TypeOf(tpe)
+	return &Binding{
+		binder:      b,
+		tpe:         t,
+		isSingleton: true,
+		isFallback:  true,
 	}
 }
 
