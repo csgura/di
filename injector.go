@@ -80,7 +80,7 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 		delete(r.loopCheck, t)
 	}()
 
-	if list := r.injector.binder.bindBefore[t]; list != nil {
+	if list := r.injector.binder.creatingBefore[t]; list != nil {
 		for _, shouldBefore := range list {
 			r.getInstanceByType(shouldBefore.tpe)
 		}

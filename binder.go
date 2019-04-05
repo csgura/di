@@ -53,10 +53,10 @@ func (b *Binding) AsNonSingleton() *Binding {
 	return b
 }
 
-// ShouldBindBefore set binding order. this binding should be performed before tpe type binding
-func (b *Binding) ShouldBindBefore(tpe interface{}) *Binding {
+// ShouldCreatedBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
+func (b *Binding) ShouldCreatedBefore(tpe interface{}) *Binding {
 
-	b.binder.shouldBindBefore(tpe, b)
+	b.binder.shouldCreatedBefore(tpe, b)
 	return b
 }
 
@@ -64,16 +64,16 @@ func (b *Binding) ShouldBindBefore(tpe interface{}) *Binding {
 type Binder struct {
 	providers         map[reflect.Type]*Binding
 	providersFallback map[reflect.Type]*Binding
-	bindBefore        map[reflect.Type][]*Binding
+	creatingBefore    map[reflect.Type][]*Binding
 	ignoreDuplicate   bool
 }
 
-func (b *Binder) shouldBindBefore(intf interface{}, binding *Binding) {
+func (b *Binder) shouldCreatedBefore(intf interface{}, binding *Binding) {
 	t := reflect.TypeOf(intf)
-	list := b.bindBefore[t]
+	list := b.creatingBefore[t]
 
 	list = append(list, binding)
-	b.bindBefore[t] = list
+	b.creatingBefore[t] = list
 }
 
 // Bind returns Binding that it is not binded anything
@@ -162,6 +162,6 @@ func newBinder() *Binder {
 	ret.providers = make(map[reflect.Type]*Binding)
 	ret.providersFallback = make(map[reflect.Type]*Binding)
 
-	ret.bindBefore = make(map[reflect.Type][]*Binding)
+	ret.creatingBefore = make(map[reflect.Type][]*Binding)
 	return ret
 }

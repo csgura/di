@@ -382,7 +382,7 @@ func (r *FirstModule) Configure(binder *di.Binder) {
 		createdOrder = append(createdOrder, "FirstModule")
 		f := First(1)
 		return &f
-	}).ShouldBindBefore((*Second)(nil))
+	}).ShouldCreatedBefore((*Second)(nil))
 }
 
 func (r *SecondModule) Configure(binder *di.Binder) {
@@ -422,7 +422,7 @@ func (r *FirstModuleFallback) Configure(binder *di.Binder) {
 		createdOrder = append(createdOrder, "FirstModuleFallback")
 		f := First(1)
 		return &f
-	}).ShouldBindBefore((*Second)(nil))
+	}).ShouldCreatedBefore((*Second)(nil))
 }
 
 func TestBindFallback(t *testing.T) {
