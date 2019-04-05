@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Injector used to get instance
 type Injector interface {
 	GetInstance(intf interface{}) interface{}
 	GetProperty(propName string) string
@@ -14,55 +15,55 @@ type Injector interface {
 	GetInstancesOf(intf interface{}) []interface{}
 }
 
-type InjectorImpl struct {
+type injectorImpl struct {
 	binder *Binder
 	props  map[string]string
 }
 
-type InjectorContext struct {
-	injector  *InjectorImpl
+type injectorContext struct {
+	injector  *injectorImpl
 	loopCheck map[reflect.Type]bool
 	stack     []reflect.Type
 }
 
-func (this *InjectorImpl) GetInstance(intf interface{}) interface{} {
+func (r *injectorImpl) GetInstance(intf interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := InjectorContext{this, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil}
 	return context.GetInstance(intf)
 }
 
-func (this *InjectorImpl) GetInstancesOf(intf interface{}) []interface{} {
+func (r *injectorImpl) GetInstancesOf(intf interface{}) []interface{} {
 	//fmt.Println("impl getIns")
-	return this.binder.getInstancesOf(intf)
+	return r.binder.getInstancesOf(intf)
 }
 
-func (this *InjectorImpl) getInstanceByType(t reflect.Type) interface{} {
+func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
 	//fmt.Println("impl getIns")
-	context := InjectorContext{this, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil}
 	return context.getInstanceByType(t)
 }
 
-func (this *InjectorImpl) GetProperty(propName string) string {
-	return this.props[propName]
+func (r *injectorImpl) GetProperty(propName string) string {
+	return r.props[propName]
 }
 
-func (this *InjectorImpl) SetProperty(propName string, value string) {
-	this.props[propName] = value
+func (r *injectorImpl) SetProperty(propName string, value string) {
+	r.props[propName] = value
 }
 
-func (this *InjectorContext) GetProperty(propName string) string {
-	return this.injector.GetProperty(propName)
+func (r *injectorContext) GetProperty(propName string) string {
+	return r.injector.GetProperty(propName)
 }
 
-func (this *InjectorContext) SetProperty(propName string, value string) {
-	this.injector.SetProperty(propName, value)
+func (r *injectorContext) SetProperty(propName string, value string) {
+	r.injector.SetProperty(propName, value)
 }
 
-func (this *InjectorContext) getInstanceByType(t reflect.Type) interface{} {
-	this.stack = append(this.stack, t)
-	if this.loopCheck[t] == true {
+func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{} {
+	r.stack = append(r.stack, t)
+	if r.loopCheck[t] == true {
 		loopStr := ""
-		for _, k := range this.stack {
+		for _, k := range r.stack {
 			if loopStr == "" {
 				loopStr = k.String()
 			} else {
@@ -72,46 +73,58 @@ func (this *InjectorContext) getInstanceByType(t reflect.Type) interface{} {
 		}
 		panic("dependency cycle : \n" + loopStr + "\n")
 	}
-	this.loopCheck[t] = true
+	r.loopCheck[t] = true
 
-	p := this.injector.binder.providers[t]
+	defer func() {
+		r.stack = r.stack[0 : len(r.stack)-1]
+		delete(r.loopCheck, t)
+	}()
+
+	if list := r.injector.binder.bindBefore[t]; list != nil {
+		for _, shouldBefore := range list {
+			r.getInstanceByType(shouldBefore.tpe)
+		}
+	}
+	return p.provider(r)
+}
+
+func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
+
+	p := r.injector.binder.providers[t]
 	if p != nil {
 		if p.isSingleton {
-
 			ret := p.instance
 			if ret == nil {
 				if p.provider != nil {
-					ret = p.provider(this)
+					ret = r.createInstance(t, p)
 					p.instance = ret
 				}
 			}
-			this.stack = this.stack[0 : len(this.stack)-1]
-			delete(this.loopCheck, t)
-			return ret
-		} else {
-			ret := p.provider(this)
-			this.stack = this.stack[0 : len(this.stack)-1]
-			delete(this.loopCheck, t)
 			return ret
 		}
+		ret := r.createInstance(t, p)
+		return ret
+
 	}
 	return nil
 }
-func (this *InjectorContext) GetInstance(intf interface{}) interface{} {
+
+func (r *injectorContext) GetInstance(intf interface{}) interface{} {
 	//fmt.Println("context getIns")
 
 	t := reflect.TypeOf(intf)
 
-	return this.getInstanceByType(t)
+	return r.getInstanceByType(t)
 	//fmt.Printf("type = %s\n", t.String())
 
 }
 
-func (this *InjectorContext) GetInstancesOf(intf interface{}) []interface{} {
+func (r *injectorContext) GetInstancesOf(intf interface{}) []interface{} {
 	//fmt.Println("impl getIns")
-	return this.injector.binder.getInstancesOf(intf)
+	return r.injector.binder.getInstancesOf(intf)
 }
 
+// NewInjector returns new Injector from implements with enabled modulenames
 func NewInjector(implements *Implements, moduleNames []string) Injector {
 
 	binder := newBinder()
@@ -131,7 +144,7 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 			panic(fmt.Sprintf("module %s is not implemented", m))
 		}
 	}
-	injector := &InjectorImpl{binder, make(map[string]string)}
+	injector := &injectorImpl{binder, make(map[string]string)}
 
 	for t := range binder.providers {
 		if binder.providers[t].isEager {
@@ -142,6 +155,8 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 	return injector
 }
 
+// NewInjectorWithTimeout returns new Injector from implements with enabled modulenames
+// and it checks timeout
 func NewInjectorWithTimeout(implements *Implements, moduleNames []string, timeout time.Duration) Injector {
 	ch := make(chan Injector)
 

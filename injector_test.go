@@ -368,3 +368,48 @@ func TestFunctionBind(t *testing.T) {
 	}
 
 }
+
+type First int
+type Second int
+
+var createdOrder = []string{}
+
+type FirstModule struct{}
+type SecondModule struct{}
+
+func (r *FirstModule) Configure(binder *di.Binder) {
+	binder.BindProvider((*First)(nil), func(injector di.Injector) interface{} {
+		createdOrder = append(createdOrder, "FirstModule")
+		f := First(1)
+		return &f
+	}).ShouldBindBefore((*Second)(nil))
+}
+
+func (r *SecondModule) Configure(binder *di.Binder) {
+	binder.BindProvider((*Second)(nil), func(injector di.Injector) interface{} {
+		createdOrder = append(createdOrder, "SecondModule")
+		f := Second(2)
+		return &f
+	}).AsEagerSingleton()
+}
+
+func TestBindOrder(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddImplement("FirstModule", &FirstModule{})
+	implements.AddImplement("SecondModule", &SecondModule{})
+
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"FirstModule", "SecondModule"}
+
+	di.NewInjector(implements, loadingModuleList)
+
+	if createdOrder[0] != "FirstModule" {
+		t.Errorf("FirstModule not binded first")
+	}
+
+	if createdOrder[1] != "SecondModule" {
+		t.Errorf("SecondModule not binded second")
+	}
+}
