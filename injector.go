@@ -89,8 +89,24 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 }
 
 func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
-
 	p := r.injector.binder.providers[t]
+	if p != nil {
+		if p.isSingleton {
+			ret := p.instance
+			if ret == nil {
+				if p.provider != nil {
+					ret = r.createInstance(t, p)
+					p.instance = ret
+				}
+			}
+			return ret
+		}
+		ret := r.createInstance(t, p)
+		return ret
+
+	}
+
+	p = r.injector.binder.providersFallback[t]
 	if p != nil {
 		if p.isSingleton {
 			ret := p.instance
@@ -130,8 +146,8 @@ func NewInjector(implements *Implements, moduleNames []string) Injector {
 	binder := newBinder()
 
 	binder.ignoreDuplicate = true
-	for i := len(implements.just) - 1; i >= 0; i-- {
-		implements.just[i].Configure(binder)
+	for i := len(implements.anonymousModule) - 1; i >= 0; i-- {
+		implements.anonymousModule[i].Configure(binder)
 	}
 
 	binder.ignoreDuplicate = false

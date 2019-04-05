@@ -13,6 +13,27 @@ type Binding struct {
 	instance    interface{}
 	isSingleton bool
 	isEager     bool
+	isFallback  bool
+}
+
+// IfNotBinded is used default fallback binding
+func (b *Binding) IfNotBinded() *Binding {
+	b.isFallback = true
+	return b
+}
+
+// ToInstance binds type to singleton instance
+func (b *Binding) ToInstance(instance interface{}) *Binding {
+	b.instance = instance
+	b.binder.bind(b)
+	return b
+}
+
+// ToProvider binds type to the provider
+func (b *Binding) ToProvider(constructor func(injector Injector) interface{}) *Binding {
+	b.provider = constructor
+	b.binder.bind(b)
+	return b
 }
 
 // AsEagerSingleton set binding as eager singleton
@@ -41,9 +62,10 @@ func (b *Binding) ShouldBindBefore(tpe interface{}) *Binding {
 
 // Binder has bindings
 type Binder struct {
-	providers       map[reflect.Type]*Binding
-	bindBefore      map[reflect.Type][]*Binding
-	ignoreDuplicate bool
+	providers         map[reflect.Type]*Binding
+	providersFallback map[reflect.Type]*Binding
+	bindBefore        map[reflect.Type][]*Binding
+	ignoreDuplicate   bool
 }
 
 func (b *Binder) shouldBindBefore(intf interface{}, binding *Binding) {
@@ -54,37 +76,43 @@ func (b *Binder) shouldBindBefore(intf interface{}, binding *Binding) {
 	b.bindBefore[t] = list
 }
 
-// BindProvider binds intf type to provider function
-func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) *Binding {
-	t := reflect.TypeOf(intf)
-	if b.providers[t] == nil {
-		b.providers[t] = &Binding{b, t, constructor, nil, true, false}
-		return b.providers[t]
+// Bind returns Binding that it is not binded anything
+func (b *Binder) Bind(tpe interface{}) *Binding {
+	t := reflect.TypeOf(tpe)
+	return &Binding{
+		binder:      b,
+		tpe:         t,
+		isSingleton: true,
+	}
+}
+
+func (b *Binder) bind(binding *Binding) {
+	t := binding.tpe
+	if binding.isFallback {
+		if b.providersFallback[t] == nil {
+			b.providersFallback[t] = binding
+		}
 	} else {
-		if b.ignoreDuplicate {
-			return b.providers[t]
+		if b.providers[t] == nil {
+			b.providers[t] = binding
 		} else {
-			panic("duplicated bind for " + t.String())
+			if !b.ignoreDuplicate {
+				panic("duplicated bind for " + t.String())
+			}
 		}
 	}
+}
 
+// BindProvider binds intf type to provider function
+func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) *Binding {
+	return b.Bind(intf).ToProvider(constructor)
 }
 
 // BindSingleton binds intf type to singleton instance
 func (b *Binder) BindSingleton(intf interface{}, instance interface{}) *Binding {
-	t := reflect.TypeOf(intf)
-	if b.providers[t] == nil {
-		b.providers[t] = &Binding{b, t, nil, instance, true, false}
-		return b.providers[t]
-	} else {
-		if b.ignoreDuplicate {
-			return b.providers[t]
-		} else {
-			panic("duplicated bind for " + t.String())
-		}
-	}
-}
+	return b.Bind(intf).ToInstance(instance)
 
+}
 func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -132,6 +160,8 @@ type AbstractModule interface {
 func newBinder() *Binder {
 	ret := new(Binder)
 	ret.providers = make(map[reflect.Type]*Binding)
+	ret.providersFallback = make(map[reflect.Type]*Binding)
+
 	ret.bindBefore = make(map[reflect.Type][]*Binding)
 	return ret
 }

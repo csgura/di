@@ -394,6 +394,7 @@ func (r *SecondModule) Configure(binder *di.Binder) {
 }
 
 func TestBindOrder(t *testing.T) {
+	createdOrder = nil
 	implements := di.NewImplements()
 	implements.AddImplement("FirstModule", &FirstModule{})
 	implements.AddImplement("SecondModule", &SecondModule{})
@@ -407,6 +408,70 @@ func TestBindOrder(t *testing.T) {
 
 	if createdOrder[0] != "FirstModule" {
 		t.Errorf("FirstModule not binded first")
+	}
+
+	if createdOrder[1] != "SecondModule" {
+		t.Errorf("SecondModule not binded second")
+	}
+}
+
+type FirstModuleFallback struct{}
+
+func (r *FirstModuleFallback) Configure(binder *di.Binder) {
+	binder.Bind((*First)(nil)).IfNotBinded().ToProvider(func(injector di.Injector) interface{} {
+		createdOrder = append(createdOrder, "FirstModuleFallback")
+		f := First(1)
+		return &f
+	}).ShouldBindBefore((*Second)(nil))
+}
+
+func TestBindFallback(t *testing.T) {
+	createdOrder = nil
+	implements := di.NewImplements()
+	implements.AddImplement("FirstModule", &FirstModule{})
+	implements.AddImplement("SecondModule", &SecondModule{})
+	implements.AddImplement("FirstModuleFallback", &FirstModuleFallback{})
+
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"FirstModule", "SecondModule", "FirstModuleFallback"}
+
+	di.NewInjector(implements, loadingModuleList)
+
+	if len(createdOrder) != 2 {
+		t.Errorf("more then 2 module binded")
+	}
+
+	if createdOrder[0] != "FirstModule" {
+		t.Errorf("FirstModule not binded first")
+	}
+
+	if createdOrder[1] != "SecondModule" {
+		t.Errorf("SecondModule not binded second")
+	}
+}
+
+func TestBindFallback2(t *testing.T) {
+	createdOrder = nil
+	implements := di.NewImplements()
+	implements.AddImplement("FirstModule", &FirstModule{})
+	implements.AddImplement("SecondModule", &SecondModule{})
+	implements.AddImplement("FirstModuleFallback", &FirstModuleFallback{})
+
+	// implements.AddImplement("MyModule2", &MyModule2{})
+	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
+
+	loadingModuleList := []string{"SecondModule", "FirstModuleFallback"}
+
+	di.NewInjector(implements, loadingModuleList)
+
+	if len(createdOrder) != 2 {
+		t.Errorf("more then 2 module binded")
+	}
+
+	if createdOrder[0] != "FirstModuleFallback" {
+		t.Errorf("FirstModuleFallback not binded first")
 	}
 
 	if createdOrder[1] != "SecondModule" {
