@@ -165,7 +165,7 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 
 		switch field.Kind() {
 		case reflect.Func:
-			if field.CanSet() {
+			if field.IsNil() && field.CanSet() {
 				res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
 				if res != nil {
 					//field.Elem().Set(reflect.ValueOf(res))
@@ -178,7 +178,7 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 				r.InjectMembers(field.Addr().Interface())
 			}
 		case reflect.Ptr:
-			if field.CanSet() {
+			if field.IsNil() && field.CanSet() {
 				res := r.getInstanceByType(fieldType.Type)
 				if res != nil {
 					//field.Elem().Set(reflect.ValueOf(res))
@@ -186,7 +186,7 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 				}
 			}
 		case reflect.Interface:
-			if field.CanSet() {
+			if field.IsNil() && field.CanSet() {
 				res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
 				if res != nil {
 					//field.Elem().Set(reflect.ValueOf(res))

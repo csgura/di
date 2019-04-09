@@ -507,16 +507,19 @@ type SubStructPointer struct {
 type GetValueFunc func() string
 
 type Target struct {
-	Value    ValueInterface
-	value    ValueInterface
-	Sub      SubStruct
-	sub      SubStruct
-	SubPtr   *SubStructPointer
-	subPtr   *SubStructPointer
-	str      string
-	iv       int
-	GetValue GetValueFunc
-	getValue GetValueFunc
+	Value          ValueInterface
+	value          ValueInterface
+	NotNilValue    ValueInterface
+	Sub            SubStruct
+	sub            SubStruct
+	SubPtr         *SubStructPointer
+	NotNilSubPtr   *SubStructPointer
+	subPtr         *SubStructPointer
+	str            string
+	iv             int
+	GetValue       GetValueFunc
+	getValue       GetValueFunc
+	NotNilGetValue GetValueFunc
 }
 
 func TestInjectMembers(t *testing.T) {
@@ -539,7 +542,13 @@ func TestInjectMembers(t *testing.T) {
 	})
 
 	injector := di.NewInjector(implements, []string{})
-	target := Target{}
+	target := Target{
+		NotNilValue:  &ValueImpl{"NotNilValue"},
+		NotNilSubPtr: &SubStructPointer{Value: &ValueImpl{"NotNilSubPtr"}},
+		NotNilGetValue: func() string {
+			return "NotNilGetValue"
+		},
+	}
 
 	injector.InjectMembers(&target)
 
@@ -555,6 +564,11 @@ func TestInjectMembers(t *testing.T) {
 
 	if target.Value.Value() != "Value" {
 		t.Errorf("target.Value.Value() != Value")
+		return
+	}
+
+	if target.NotNilValue.Value() != "NotNilValue" {
+		t.Errorf("target.NotNilValue.Value() != NotNilValue")
 		return
 	}
 
@@ -592,6 +606,11 @@ func TestInjectMembers(t *testing.T) {
 		return
 	}
 
+	if target.NotNilSubPtr.Value.Value() != "NotNilSubPtr" {
+		t.Errorf("target.NotNilSubPtr.Value.Value() != NotNilSubPtr")
+		return
+	}
+
 	if target.getValue != nil {
 		t.Errorf("target.getValue != nil")
 		return
@@ -604,6 +623,11 @@ func TestInjectMembers(t *testing.T) {
 
 	if target.GetValue() != "GetValueFunc" {
 		t.Errorf("target.GetValue() != GetValueFunc")
+		return
+	}
+
+	if target.NotNilGetValue() != "NotNilGetValue" {
+		t.Errorf("target.NotNilGetValue() != NotNilGetValue")
 		return
 	}
 }
