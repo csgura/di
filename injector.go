@@ -13,6 +13,7 @@ type Injector interface {
 	SetProperty(propName string, value string)
 
 	GetInstancesOf(intf interface{}) []interface{}
+	InjectMembers(pointer interface{})
 }
 
 type injectorImpl struct {
@@ -41,6 +42,12 @@ func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
 	//fmt.Println("impl getIns")
 	context := injectorContext{r, make(map[reflect.Type]bool), nil}
 	return context.getInstanceByType(t)
+}
+
+func (r *injectorImpl) InjectMembers(pointer interface{}) {
+	//fmt.Println("impl getIns")
+	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	context.InjectMembers(pointer)
 }
 
 func (r *injectorImpl) GetProperty(propName string) string {
@@ -138,6 +145,56 @@ func (r *injectorContext) GetInstance(intf interface{}) interface{} {
 func (r *injectorContext) GetInstancesOf(intf interface{}) []interface{} {
 	//fmt.Println("impl getIns")
 	return r.injector.binder.getInstancesOf(intf)
+}
+
+func (r *injectorContext) InjectMembers(pointer interface{}) {
+	//fmt.Println("context getIns")
+
+	ptrvalue := reflect.ValueOf(pointer)
+	t := reflect.TypeOf(pointer).Elem()
+
+	if ptrvalue.Kind() != reflect.Ptr || ptrvalue.IsNil() {
+		fmt.Printf("ptrvalue is not ptr or is nil\n")
+		return
+	}
+
+	rv := ptrvalue.Elem()
+	for i := 0; i < rv.NumField(); i++ {
+		field := rv.Field(i)
+		fieldType := t.Field(i)
+
+		switch field.Kind() {
+		case reflect.Func:
+			if field.CanSet() {
+				res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
+				if res != nil {
+					//field.Elem().Set(reflect.ValueOf(res))
+					field.Set(reflect.ValueOf(res))
+				}
+			}
+
+		case reflect.Struct:
+			if field.CanSet() {
+				r.InjectMembers(field.Addr().Interface())
+			}
+		case reflect.Ptr:
+			if field.CanSet() {
+				res := r.getInstanceByType(fieldType.Type)
+				if res != nil {
+					//field.Elem().Set(reflect.ValueOf(res))
+					field.Set(reflect.ValueOf(res))
+				}
+			}
+		case reflect.Interface:
+			if field.CanSet() {
+				res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
+				if res != nil {
+					//field.Elem().Set(reflect.ValueOf(res))
+					field.Set(reflect.ValueOf(res))
+				}
+			}
+		}
+	}
 }
 
 // NewInjector returns new Injector from implements with enabled modulenames

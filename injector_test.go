@@ -478,3 +478,132 @@ func TestBindFallback2(t *testing.T) {
 		t.Errorf("SecondModule not binded second")
 	}
 }
+
+type ValueInterface interface {
+	Value() string
+}
+
+type Value1 ValueInterface
+type Value2 ValueInterface
+
+type ValueImpl struct {
+	value string
+}
+
+func (r *ValueImpl) Value() string {
+	return r.value
+}
+
+type SubStruct struct {
+	Value Value1
+	str   string
+}
+
+type SubStructPointer struct {
+	Value Value2
+	iv    int
+}
+
+type GetValueFunc func() string
+
+type Target struct {
+	Value    ValueInterface
+	value    ValueInterface
+	Sub      SubStruct
+	sub      SubStruct
+	SubPtr   *SubStructPointer
+	subPtr   *SubStructPointer
+	str      string
+	iv       int
+	GetValue GetValueFunc
+	getValue GetValueFunc
+}
+
+func TestInjectMembers(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return GetValueFunc(func() string {
+				return "GetValueFunc"
+			})
+		})
+
+		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			ret := SubStructPointer{}
+			injector.InjectMembers(&ret)
+			return &ret
+		})
+	})
+
+	injector := di.NewInjector(implements, []string{})
+	target := Target{}
+
+	injector.InjectMembers(&target)
+
+	if target.value != nil {
+		t.Errorf("target.value != nil")
+		return
+	}
+
+	if target.Value == nil {
+		t.Errorf("value not injected")
+		return
+	}
+
+	if target.Value.Value() != "Value" {
+		t.Errorf("target.Value.Value() != Value")
+		return
+	}
+
+	if target.sub.Value != nil {
+		t.Errorf("target.sub.Value != nil")
+		return
+	}
+
+	if target.Sub.Value == nil {
+		t.Errorf("target.Sub.Value == nil")
+		return
+	}
+	if target.Sub.Value.Value() != "Value1" {
+		t.Errorf("target.Sub.Value.Value() != Value1")
+		return
+	}
+
+	if target.subPtr != nil {
+		t.Errorf("target.subPtr != nil")
+		return
+	}
+
+	if target.SubPtr == nil {
+		t.Errorf("target.SubPtr == nil")
+		return
+	}
+
+	if target.SubPtr.Value == nil {
+		t.Errorf("target.SubPtr.Value == nil")
+		return
+	}
+
+	if target.SubPtr.Value.Value() != "Value2" {
+		t.Errorf("target.SubPtr.Value.Value() != Value2")
+		return
+	}
+
+	if target.getValue != nil {
+		t.Errorf("target.getValue != nil")
+		return
+	}
+
+	if target.GetValue == nil {
+		t.Errorf("target.GetValue == nil")
+		return
+	}
+
+	if target.GetValue() != "GetValueFunc" {
+		t.Errorf("target.GetValue() != GetValueFunc")
+		return
+	}
+}
