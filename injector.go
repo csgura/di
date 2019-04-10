@@ -147,6 +147,14 @@ func (r *injectorContext) GetInstancesOf(intf interface{}) []interface{} {
 	return r.injector.binder.getInstancesOf(intf)
 }
 
+func hasInjectTag(tag reflect.StructTag) bool {
+	value, ok := tag.Lookup("di")
+	if ok && value == "inject" {
+		return true
+	}
+	return false
+}
+
 func (r *injectorContext) InjectMembers(pointer interface{}) {
 	//fmt.Println("context getIns")
 
@@ -159,6 +167,16 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 	}
 
 	rv := ptrvalue.Elem()
+
+	explicitInject := false
+	for i := 0; i < rv.NumField(); i++ {
+		fieldType := t.Field(i)
+		if hasInjectTag(fieldType.Tag) {
+			explicitInject = true
+			break
+		}
+	}
+
 	for i := 0; i < rv.NumField(); i++ {
 		field := rv.Field(i)
 		fieldType := t.Field(i)
@@ -166,31 +184,56 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 		switch field.Kind() {
 		case reflect.Func:
 			if field.IsNil() && field.CanSet() {
-				res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
-				if res != nil {
-					//field.Elem().Set(reflect.ValueOf(res))
-					field.Set(reflect.ValueOf(res))
+				if explicitInject == false || hasInjectTag(fieldType.Tag) {
+					res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
+					if res != nil {
+						//field.Elem().Set(reflect.ValueOf(res))
+						field.Set(reflect.ValueOf(res))
+					} else if explicitInject {
+						panic(fmt.Sprintf("%s is Not Binded. So Can't Inject to %s.%s", fieldType.Type.String(), t.String(), fieldType.Name))
+					}
 				}
+
 			}
 
 		case reflect.Struct:
 			if field.CanSet() {
-				r.InjectMembers(field.Addr().Interface())
+				if explicitInject == false || hasInjectTag(fieldType.Tag) {
+					r.InjectMembers(field.Addr().Interface())
+				}
 			}
 		case reflect.Ptr:
 			if field.IsNil() && field.CanSet() {
-				res := r.getInstanceByType(fieldType.Type)
-				if res != nil {
-					//field.Elem().Set(reflect.ValueOf(res))
-					field.Set(reflect.ValueOf(res))
+				if explicitInject == false || hasInjectTag(fieldType.Tag) {
+					res := r.getInstanceByType(fieldType.Type)
+					if res != nil {
+						//field.Elem().Set(reflect.ValueOf(res))
+						field.Set(reflect.ValueOf(res))
+					} else if explicitInject {
+						panic(fmt.Sprintf("%s is Not Binded. So Can't Inject to %s.%s", fieldType.Type.String(), t.String(), fieldType.Name))
+					}
+
 				}
 			}
 		case reflect.Interface:
 			if field.IsNil() && field.CanSet() {
+				if explicitInject == false || hasInjectTag(fieldType.Tag) {
+					res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
+					if res != nil {
+						//field.Elem().Set(reflect.ValueOf(res))
+						field.Set(reflect.ValueOf(res))
+					} else if explicitInject {
+						panic(fmt.Sprintf("%s is Not Binded. So Can't Inject to %s.%s", fieldType.Type.String(), t.String(), fieldType.Name))
+					}
+				}
+			}
+		default:
+			if field.CanSet() && hasInjectTag(fieldType.Tag) {
 				res := r.getInstanceByType(reflect.PtrTo(fieldType.Type))
 				if res != nil {
-					//field.Elem().Set(reflect.ValueOf(res))
-					field.Set(reflect.ValueOf(res))
+					field.Set(reflect.ValueOf(res).Convert(fieldType.Type))
+				} else if explicitInject {
+					panic(fmt.Sprintf("%s is Not Binded. So Can't Inject to %s.%s", fieldType.Type.String(), t.String(), fieldType.Name))
 				}
 			}
 		}

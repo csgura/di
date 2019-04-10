@@ -506,6 +506,9 @@ type SubStructPointer struct {
 
 type GetValueFunc func() string
 
+type PrometheusPort int
+type PrometheusAddress string
+
 type Target struct {
 	Value          ValueInterface
 	value          ValueInterface
@@ -520,6 +523,8 @@ type Target struct {
 	GetValue       GetValueFunc
 	getValue       GetValueFunc
 	NotNilGetValue GetValueFunc
+	Port           PrometheusPort
+	Address        PrometheusAddress
 }
 
 func TestInjectMembers(t *testing.T) {
@@ -628,6 +633,84 @@ func TestInjectMembers(t *testing.T) {
 
 	if target.NotNilGetValue() != "NotNilGetValue" {
 		t.Errorf("target.NotNilGetValue() != NotNilGetValue")
+		return
+	}
+}
+
+type TargetExplicit struct {
+	ValueInject    ValueInterface `di:"inject"`
+	ValueNotInject ValueInterface
+	Sub            SubStruct `di:"inject"`
+	SubNotInject   SubStruct
+	Address        PrometheusAddress `di:"inject"`
+	Port           PrometheusPort    `di:"inject"`
+}
+
+func TestInjectMembersExplicit(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return GetValueFunc(func() string {
+				return "GetValueFunc"
+			})
+		})
+
+		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			ret := SubStructPointer{}
+			injector.InjectMembers(&ret)
+			return &ret
+		})
+
+		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
+		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
+		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+
+	})
+
+	injector := di.NewInjector(implements, []string{})
+	target := TargetExplicit{}
+
+	injector.InjectMembers(&target)
+
+	if target.ValueInject == nil {
+		t.Errorf("value not injected")
+		return
+	}
+
+	if target.ValueInject.Value() != "Value" {
+		t.Errorf("target.Value.Value() != Value")
+		return
+	}
+
+	if target.ValueNotInject != nil {
+		t.Errorf("target.ValueNotInject != nil")
+		return
+	}
+
+	if target.Sub.Value == nil {
+		t.Errorf("target.Sub.Value == nil")
+		return
+	}
+	if target.Sub.Value.Value() != "Value1" {
+		t.Errorf("target.Sub.Value.Value() != Value1")
+		return
+	}
+
+	if target.SubNotInject.Value != nil {
+		t.Errorf("target.Sub.Value != nil")
+		return
+	}
+
+	if target.Port != 8080 {
+		t.Errorf("target.Port != 8080")
+		return
+	}
+
+	if target.Address != "google.com" {
+		t.Errorf("target.Address != google.com")
 		return
 	}
 }
