@@ -714,3 +714,20 @@ func TestInjectMembersExplicit(t *testing.T) {
 		return
 	}
 }
+
+func TestPrimitiveBinding(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+
+		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
+		binder.Bind((*PrometheusPort)(nil)).ToInstance(PrometheusPort(8080))
+		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+
+	})
+
+	injector := di.NewInjector(implements, []string{})
+	port := injector.GetInstance((*PrometheusPort)(nil)).(PrometheusPort)
+	addr := injector.GetInstance((*PrometheusAddress)(nil)).(string)
+
+	fmt.Printf("addr = %s , port= %d\n", addr, port)
+}
