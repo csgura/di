@@ -14,6 +14,7 @@ type Injector interface {
 
 	GetInstancesOf(intf interface{}) []interface{}
 	InjectMembers(pointer interface{})
+	InjectAndCall(function interface{}) interface{}
 }
 
 type injectorImpl struct {
@@ -48,6 +49,12 @@ func (r *injectorImpl) InjectMembers(pointer interface{}) {
 	//fmt.Println("impl getIns")
 	context := injectorContext{r, make(map[reflect.Type]bool), nil}
 	context.InjectMembers(pointer)
+}
+
+func (r *injectorImpl) InjectAndCall(function interface{}) interface{} {
+	//fmt.Println("impl getIns")
+	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	return context.InjectAndCall(function)
 }
 
 func (r *injectorImpl) GetProperty(propName string) string {
@@ -153,6 +160,46 @@ func hasInjectTag(tag reflect.StructTag) bool {
 		return true
 	}
 	return false
+}
+
+func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
+	ftype := reflect.TypeOf(function)
+	if ftype == nil {
+		panic("function type is nil")
+	}
+	if ftype.Kind() != reflect.Func {
+		panic(fmt.Sprintf("can't inject non-function %v (type %v)", function, ftype))
+	}
+
+	if ftype.IsVariadic() {
+		panic(fmt.Sprintf("can't inject variadic function %v (type %v)", function, ftype))
+	}
+
+	args := []reflect.Value{}
+	for i := 0; i < ftype.NumIn(); i++ {
+		argtype := ftype.In(i)
+		bindtype := argtype
+		if bindtype.Kind() != reflect.Ptr {
+			bindtype = reflect.PtrTo(argtype)
+		}
+		instance := r.getInstanceByType(bindtype)
+		if instance == nil {
+			panic(fmt.Sprintf("%s is Not Binded. So Can't Inject %d th argument", argtype.String(), i))
+		}
+		args = append(args, reflect.ValueOf(instance).Convert(argtype))
+	}
+
+	resultValue := reflect.ValueOf(function).Call(args)
+
+	if len(resultValue) == 1 {
+		return resultValue[0].Interface()
+	}
+
+	ret := make([]interface{}, len(resultValue))
+	for i, v := range resultValue {
+		ret[i] = v.Interface()
+	}
+	return ret
 }
 
 func (r *injectorContext) InjectMembers(pointer interface{}) {

@@ -731,3 +731,63 @@ func TestPrimitiveBinding(t *testing.T) {
 
 	fmt.Printf("addr = %s , port= %d\n", addr, port)
 }
+
+func TestInjectCall(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return GetValueFunc(func() string {
+				return "GetValueFunc"
+			})
+		})
+
+		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			ret := SubStructPointer{}
+			injector.InjectMembers(&ret)
+			return &ret
+		})
+
+		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
+		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
+		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+
+	})
+
+	injector := di.NewInjector(implements, []string{})
+	ret := injector.InjectAndCall(func(v1 ValueInterface, v2 Value1, ptr *SubStructPointer, port PrometheusPort) ValueInterface {
+		if v1 == nil {
+			t.Errorf("v1 == nil")
+			return nil
+		}
+		if v2 == nil {
+			t.Errorf("v2 == nil")
+			return nil
+		}
+
+		if ptr == nil {
+			t.Errorf("ptr == nil")
+			return nil
+		}
+		if port != 8080 {
+			t.Errorf("port != 8080")
+			return nil
+		}
+
+		return &ValueImpl{"ValueRet"}
+	}).(ValueInterface)
+
+	if ret.Value() != "ValueRet" {
+		t.Errorf("ret.Value() != ValueRet")
+	}
+
+	ret2 := injector.InjectAndCall(func(v1 ValueInterface, v2 Value1, ptr *SubStructPointer, port PrometheusPort) (ValueInterface, error) {
+		return &ValueImpl{"ValueRet"}, nil
+	}).([]interface{})
+
+	if ret2[0].(ValueInterface).Value() != "ValueRet" {
+		t.Errorf("ret.Value() != ValueRet")
+	}
+}
