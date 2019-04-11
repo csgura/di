@@ -791,3 +791,76 @@ func TestInjectCall(t *testing.T) {
 		t.Errorf("ret.Value() != ValueRet")
 	}
 }
+
+type constructorResult struct {
+	v1     ValueInterface
+	v2     Value1
+	ptr    *SubStructPointer
+	server *PrometheusServerInfo
+}
+
+type PrometheusServerInfo struct {
+	Address PrometheusAddress `di:"inject"`
+	Port    PrometheusPort    `di:"inject"`
+}
+
+func constructor(v1 ValueInterface, v2 Value1, ptr *SubStructPointer, server *PrometheusServerInfo) *constructorResult {
+	return &constructorResult{v1, v2, ptr, server}
+}
+func TestBindConstructor(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return GetValueFunc(func() string {
+				return "GetValueFunc"
+			})
+		})
+
+		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			ret := SubStructPointer{}
+			injector.InjectMembers(&ret)
+			return &ret
+		})
+
+		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
+		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
+		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+
+		binder.Bind((*constructorResult)(nil)).ToConstructor(constructor)
+
+	})
+	injector := di.NewInjector(implements, []string{})
+	res := injector.GetInstance((*constructorResult)(nil)).(*constructorResult)
+	if res == nil {
+		t.Errorf("res == nil")
+	}
+
+	if res.v1 == nil {
+		t.Errorf("res.v1 == nil")
+	}
+
+	if res.v2 == nil {
+		t.Errorf("res.v2 == nil")
+	}
+
+	if res.ptr == nil {
+		t.Errorf("res.ptr == nil")
+	}
+
+	if res.server == nil {
+		t.Errorf("res.server == nil")
+	}
+
+	if res.server.Address != "google.com" {
+		t.Errorf("res.server.Address != google.com")
+	}
+
+	if res.server.Port != 8080 {
+		t.Errorf("res.server.Port != 8080")
+	}
+
+}

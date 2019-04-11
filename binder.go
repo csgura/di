@@ -30,6 +30,15 @@ func (b *Binding) ToProvider(constructor func(injector Injector) interface{}) *B
 	return b
 }
 
+// ToConstructor binds type to the constructor
+func (b *Binding) ToConstructor(function interface{}) *Binding {
+	b.provider = func(injector Injector) interface{} {
+		return injector.InjectAndCall(function)
+	}
+	b.binder.bind(b)
+	return b
+}
+
 // AsEagerSingleton set binding as eager singleton
 func (b *Binding) AsEagerSingleton() *Binding {
 	b.isEager = true
@@ -111,6 +120,11 @@ func (b *Binder) bind(binding *Binding) {
 // BindProvider binds intf type to provider function
 func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) *Binding {
 	return b.Bind(intf).ToProvider(constructor)
+}
+
+// BindConstructor binds intf type to constructor function
+func (b *Binder) BindConstructor(intf interface{}, constructor interface{}) *Binding {
+	return b.Bind(intf).ToConstructor(constructor)
 }
 
 // BindSingleton binds intf type to singleton instance

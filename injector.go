@@ -184,12 +184,24 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 		}
 		instance := r.getInstanceByType(bindtype)
 		if instance == nil {
-			panic(fmt.Sprintf("%s is Not Binded. So Can't Inject %d th argument", argtype.String(), i))
+			if argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
+				nv := reflect.New(bindtype.Elem())
+
+				r.InjectMembers(nv.Interface())
+				args = append(args, nv)
+			} else {
+				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject %d th argument", argtype.String(), i))
+			}
+		} else {
+			args = append(args, reflect.ValueOf(instance).Convert(argtype))
 		}
-		args = append(args, reflect.ValueOf(instance).Convert(argtype))
 	}
 
 	resultValue := reflect.ValueOf(function).Call(args)
+
+	if len(resultValue) == 0 {
+		return nil
+	}
 
 	if len(resultValue) == 1 {
 		return resultValue[0].Interface()
@@ -209,7 +221,10 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 	t := reflect.TypeOf(pointer).Elem()
 
 	if ptrvalue.Kind() != reflect.Ptr || ptrvalue.IsNil() {
-		fmt.Printf("ptrvalue is not ptr or is nil\n")
+		return
+	}
+
+	if ptrvalue.Elem().Kind() != reflect.Struct {
 		return
 	}
 
