@@ -8,12 +8,12 @@ import (
 
 // Injector used to get instance
 type Injector interface {
-	GetInstance(intf interface{}) interface{}
+	GetInstance(ptrToType interface{}) interface{}
 	GetProperty(propName string) string
 	SetProperty(propName string, value string)
 
-	GetInstancesOf(intf interface{}) []interface{}
-	InjectMembers(pointer interface{})
+	GetInstancesOf(ptrToType interface{}) []interface{}
+	InjectMembers(ptrToStruct interface{})
 	InjectAndCall(function interface{}) interface{}
 }
 
@@ -28,15 +28,15 @@ type injectorContext struct {
 	stack     []reflect.Type
 }
 
-func (r *injectorImpl) GetInstance(intf interface{}) interface{} {
+func (r *injectorImpl) GetInstance(ptrToType interface{}) interface{} {
 	//fmt.Println("impl getIns")
 	context := injectorContext{r, make(map[reflect.Type]bool), nil}
-	return context.GetInstance(intf)
+	return context.GetInstance(ptrToType)
 }
 
-func (r *injectorImpl) GetInstancesOf(intf interface{}) []interface{} {
+func (r *injectorImpl) GetInstancesOf(ptrToType interface{}) []interface{} {
 	//fmt.Println("impl getIns")
-	return r.binder.getInstancesOf(intf)
+	return r.binder.getInstancesOf(ptrToType)
 }
 
 func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
@@ -45,10 +45,10 @@ func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
 	return context.getInstanceByType(t)
 }
 
-func (r *injectorImpl) InjectMembers(pointer interface{}) {
+func (r *injectorImpl) InjectMembers(ptrToStruct interface{}) {
 	//fmt.Println("impl getIns")
 	context := injectorContext{r, make(map[reflect.Type]bool), nil}
-	context.InjectMembers(pointer)
+	context.InjectMembers(ptrToStruct)
 }
 
 func (r *injectorImpl) InjectAndCall(function interface{}) interface{} {
@@ -139,19 +139,19 @@ func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
 	return nil
 }
 
-func (r *injectorContext) GetInstance(intf interface{}) interface{} {
+func (r *injectorContext) GetInstance(ptrToType interface{}) interface{} {
 	//fmt.Println("context getIns")
 
-	t := reflect.TypeOf(intf)
+	t := reflect.TypeOf(ptrToType)
 
 	return r.getInstanceByType(t)
 	//fmt.Printf("type = %s\n", t.String())
 
 }
 
-func (r *injectorContext) GetInstancesOf(intf interface{}) []interface{} {
+func (r *injectorContext) GetInstancesOf(ptrToType interface{}) []interface{} {
 	//fmt.Println("impl getIns")
-	return r.injector.binder.getInstancesOf(intf)
+	return r.injector.binder.getInstancesOf(ptrToType)
 }
 
 func hasInjectTag(tag reflect.StructTag) bool {
@@ -214,10 +214,10 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	return ret
 }
 
-func (r *injectorContext) InjectMembers(pointer interface{}) {
+func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 	//fmt.Println("context getIns")
 
-	ptrvalue := reflect.ValueOf(pointer)
+	ptrvalue := reflect.ValueOf(ptrToStruct)
 
 	if ptrvalue.Kind() != reflect.Ptr || ptrvalue.IsNil() {
 		return
@@ -227,7 +227,7 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 		return
 	}
 
-	t := reflect.TypeOf(pointer).Elem()
+	t := reflect.TypeOf(ptrToStruct).Elem()
 
 	rv := ptrvalue.Elem()
 

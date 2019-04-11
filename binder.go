@@ -24,8 +24,8 @@ func (b *Binding) ToInstance(instance interface{}) *Binding {
 }
 
 // ToProvider binds type to the provider
-func (b *Binding) ToProvider(constructor func(injector Injector) interface{}) *Binding {
-	b.provider = constructor
+func (b *Binding) ToProvider(provider func(injector Injector) interface{}) *Binding {
+	b.provider = provider
 	b.binder.bind(b)
 	return b
 }
@@ -55,9 +55,9 @@ func (b *Binding) AsNonSingleton() *Binding {
 }
 
 // ShouldCreateBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
-func (b *Binding) ShouldCreateBefore(tpe interface{}) *Binding {
+func (b *Binding) ShouldCreateBefore(ptrToType interface{}) *Binding {
 
-	b.binder.shouldCreateBefore(tpe, b)
+	b.binder.shouldCreateBefore(ptrToType, b)
 	return b
 }
 
@@ -69,8 +69,8 @@ type Binder struct {
 	ignoreDuplicate   bool
 }
 
-func (b *Binder) shouldCreateBefore(intf interface{}, binding *Binding) {
-	t := reflect.TypeOf(intf)
+func (b *Binder) shouldCreateBefore(ptrToType interface{}, binding *Binding) {
+	t := reflect.TypeOf(ptrToType)
 	list := b.creatingBefore[t]
 
 	list = append(list, binding)
@@ -78,8 +78,8 @@ func (b *Binder) shouldCreateBefore(intf interface{}, binding *Binding) {
 }
 
 // Bind returns Binding that it is not binded anything
-func (b *Binder) Bind(tpe interface{}) *Binding {
-	t := reflect.TypeOf(tpe)
+func (b *Binder) Bind(ptrToType interface{}) *Binding {
+	t := reflect.TypeOf(ptrToType)
 	return &Binding{
 		binder:      b,
 		tpe:         t,
@@ -88,8 +88,8 @@ func (b *Binder) Bind(tpe interface{}) *Binding {
 }
 
 // IfNotBinded returns Binding that will used if there are no other binding for tpe type
-func (b *Binder) IfNotBinded(tpe interface{}) *Binding {
-	t := reflect.TypeOf(tpe)
+func (b *Binder) IfNotBinded(ptrToType interface{}) *Binding {
+	t := reflect.TypeOf(ptrToType)
 	return &Binding{
 		binder:      b,
 		tpe:         t,
@@ -116,18 +116,18 @@ func (b *Binder) bind(binding *Binding) {
 }
 
 // BindProvider binds intf type to provider function
-func (b *Binder) BindProvider(intf interface{}, constructor func(injector Injector) interface{}) *Binding {
-	return b.Bind(intf).ToProvider(constructor)
+func (b *Binder) BindProvider(ptrToType interface{}, provider func(injector Injector) interface{}) *Binding {
+	return b.Bind(ptrToType).ToProvider(provider)
 }
 
 // BindConstructor binds intf type to constructor function
-func (b *Binder) BindConstructor(intf interface{}, constructor interface{}) *Binding {
-	return b.Bind(intf).ToConstructor(constructor)
+func (b *Binder) BindConstructor(ptrToType interface{}, constructor interface{}) *Binding {
+	return b.Bind(ptrToType).ToConstructor(constructor)
 }
 
 // BindSingleton binds intf type to singleton instance
-func (b *Binder) BindSingleton(intf interface{}, instance interface{}) *Binding {
-	return b.Bind(intf).ToInstance(instance)
+func (b *Binder) BindSingleton(ptrToType interface{}, instance interface{}) *Binding {
+	return b.Bind(ptrToType).ToInstance(instance)
 
 }
 func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
@@ -139,9 +139,9 @@ func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
 	eq = realType.Implements(interfaceType)
 	return eq
 }
-func (b *Binder) getInstancesOf(intf interface{}) []interface{} {
+func (b *Binder) getInstancesOf(ptrToType interface{}) []interface{} {
 	var ret []interface{}
-	interfaceType := reflect.TypeOf(intf).Elem()
+	interfaceType := reflect.TypeOf(ptrToType).Elem()
 
 	for k := range b.providers {
 		p := b.providers[k]
