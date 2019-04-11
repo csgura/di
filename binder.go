@@ -32,11 +32,9 @@ func (b *Binding) ToProvider(constructor func(injector Injector) interface{}) *B
 
 // ToConstructor binds type to the constructor
 func (b *Binding) ToConstructor(function interface{}) *Binding {
-	b.provider = func(injector Injector) interface{} {
+	return b.ToProvider(func(injector Injector) interface{} {
 		return injector.InjectAndCall(function)
-	}
-	b.binder.bind(b)
-	return b
+	})
 }
 
 // AsEagerSingleton set binding as eager singleton
