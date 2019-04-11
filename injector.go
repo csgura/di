@@ -190,7 +190,7 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 				r.InjectMembers(nv.Interface())
 				args = append(args, nv)
 			} else {
-				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject %d th argument", argtype.String(), i))
+				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument at index %d", argtype.String(), i))
 			}
 		} else {
 			args = append(args, reflect.ValueOf(instance).Convert(argtype))
@@ -218,7 +218,6 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 	//fmt.Println("context getIns")
 
 	ptrvalue := reflect.ValueOf(pointer)
-	t := reflect.TypeOf(pointer).Elem()
 
 	if ptrvalue.Kind() != reflect.Ptr || ptrvalue.IsNil() {
 		return
@@ -227,6 +226,8 @@ func (r *injectorContext) InjectMembers(pointer interface{}) {
 	if ptrvalue.Elem().Kind() != reflect.Struct {
 		return
 	}
+
+	t := reflect.TypeOf(pointer).Elem()
 
 	rv := ptrvalue.Elem()
 
