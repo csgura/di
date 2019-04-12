@@ -67,6 +67,8 @@ type Binder struct {
 	providersFallback map[reflect.Type]*Binding
 	creatingBefore    map[reflect.Type][]*Binding
 	ignoreDuplicate   bool
+	ignoreSet         map[reflect.Type]bool
+	bindRecords       []*Binding
 }
 
 func (b *Binder) shouldCreateBefore(ptrToType interface{}, binding *Binding) {
@@ -98,18 +100,32 @@ func (b *Binder) IfNotBinded(ptrToType interface{}) *Binding {
 	}
 }
 
+func (b *Binder) clearIgnoreSet() {
+	b.ignoreSet = map[reflect.Type]bool{}
+}
+
+func (b *Binder) setIgnoreDuplicate(bindType reflect.Type) {
+	b.ignoreSet[bindType] = true
+}
+
 func (b *Binder) bind(binding *Binding) {
 	t := binding.tpe
 	if binding.isFallback {
 		if b.providersFallback[t] == nil {
 			b.providersFallback[t] = binding
+			b.bindRecords = append(b.bindRecords, binding)
 		}
 	} else {
 		if b.providers[t] == nil {
 			b.providers[t] = binding
+			b.bindRecords = append(b.bindRecords, binding)
 		} else {
 			if !b.ignoreDuplicate {
 				panic("duplicated bind for " + t.String())
+			} else {
+				if !b.ignoreSet[t] {
+					panic("duplicated bind for " + t.String())
+				}
 			}
 		}
 	}
@@ -180,5 +196,6 @@ func newBinder() *Binder {
 	ret.providersFallback = make(map[reflect.Type]*Binding)
 
 	ret.creatingBefore = make(map[reflect.Type][]*Binding)
+	ret.ignoreSet = map[reflect.Type]bool{}
 	return ret
 }

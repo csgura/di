@@ -1,5 +1,10 @@
 package di
 
+import (
+	"fmt"
+	"time"
+)
+
 // BindFunc can act as AbstractModule
 type BindFunc func(binder *Binder)
 
@@ -47,6 +52,56 @@ func (r *Implements) Clone() *Implements {
 		ret.anonymousModule = append(ret.anonymousModule, nonamed)
 	}
 	return ret
+}
+
+// NewInjector returns new Injector from implements with enabled modulenames
+func (r *Implements) NewInjector(moduleNames []string) Injector {
+
+	binder := newBinder()
+
+	binder.ignoreDuplicate = true
+	for i := len(r.anonymousModule) - 1; i >= 0; i-- {
+		r.anonymousModule[i].Configure(binder)
+	}
+
+	binder.ignoreDuplicate = false
+
+	for _, m := range moduleNames {
+		module := r.implements[m]
+		if module != nil {
+			r.implements[m].Configure(binder)
+		} else {
+			panic(fmt.Sprintf("module %s is not implemented", m))
+		}
+	}
+	injector := &injectorImpl{binder, make(map[string]string)}
+
+	for t := range binder.providers {
+		if binder.providers[t].isEager {
+			injector.getInstanceByType(t)
+			//fmt.Printf("eager singleton %v -> %v\n", t, ret)
+		}
+	}
+	return injector
+}
+
+// NewInjectorWithTimeout returns new Injector from implements with enabled modulenames
+// and it checks timeout
+func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.Duration) Injector {
+	ch := make(chan Injector)
+
+	go func() {
+		ret := r.NewInjector(moduleNames)
+		ch <- ret
+	}()
+
+	timer := time.NewTimer(timeout)
+	select {
+	case injector := <-ch:
+		return injector
+	case <-timer.C:
+		panic(fmt.Sprintf("Creation failed within the time limit : %d", timeout))
+	}
 }
 
 // NewImplements returns new empty Implements

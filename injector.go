@@ -306,49 +306,20 @@ func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 // NewInjector returns new Injector from implements with enabled modulenames
 func NewInjector(implements *Implements, moduleNames []string) Injector {
 
-	binder := newBinder()
-
-	binder.ignoreDuplicate = true
-	for i := len(implements.anonymousModule) - 1; i >= 0; i-- {
-		implements.anonymousModule[i].Configure(binder)
-	}
-
-	binder.ignoreDuplicate = false
-
-	for _, m := range moduleNames {
-		module := implements.implements[m]
-		if module != nil {
-			implements.implements[m].Configure(binder)
-		} else {
-			panic(fmt.Sprintf("module %s is not implemented", m))
-		}
-	}
-	injector := &injectorImpl{binder, make(map[string]string)}
-
-	for t := range binder.providers {
-		if binder.providers[t].isEager {
-			injector.getInstanceByType(t)
-			//fmt.Printf("eager singleton %v -> %v\n", t, ret)
-		}
-	}
-	return injector
+	return implements.NewInjector(moduleNames)
 }
 
 // NewInjectorWithTimeout returns new Injector from implements with enabled modulenames
 // and it checks timeout
 func NewInjectorWithTimeout(implements *Implements, moduleNames []string, timeout time.Duration) Injector {
-	ch := make(chan Injector)
+	return implements.NewInjectorWithTimeout(moduleNames, timeout)
+}
 
-	go func() {
-		ret := NewInjector(implements, moduleNames)
-		ch <- ret
-	}()
-
-	timer := time.NewTimer(timeout)
-	select {
-	case injector := <-ch:
-		return injector
-	case <-timer.C:
-		panic(fmt.Sprintf("Creation failed within the time limit : %d", timeout))
+// CreateInjector creates new Injector with provided modules
+func CreateInjector(modules ...AbstractModule) Injector {
+	impls := NewImplements()
+	for _, m := range modules {
+		impls.AddBind(m.Configure)
 	}
+	return impls.NewInjector(nil)
 }

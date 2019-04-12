@@ -208,7 +208,7 @@ func TestNotImplemented(t *testing.T) {
 	fmt.Printf("this code should not execute\n")
 }
 
-func TestJustIn(t *testing.T) {
+func TestAnonymous(t *testing.T) {
 
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
@@ -427,17 +427,8 @@ func (r *FirstModuleFallback) Configure(binder *di.Binder) {
 
 func TestBindFallback(t *testing.T) {
 	createdOrder = nil
-	implements := di.NewImplements()
-	implements.AddImplement("FirstModule", &FirstModule{})
-	implements.AddImplement("SecondModule", &SecondModule{})
-	implements.AddImplement("FirstModuleFallback", &FirstModuleFallback{})
 
-	// implements.AddImplement("MyModule2", &MyModule2{})
-	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
-
-	loadingModuleList := []string{"FirstModule", "SecondModule", "FirstModuleFallback"}
-
-	di.NewInjector(implements, loadingModuleList)
+	di.CreateInjector(&FirstModule{}, &SecondModule{}, &FirstModuleFallback{})
 
 	if len(createdOrder) != 2 {
 		t.Errorf("more then 2 module binded")
