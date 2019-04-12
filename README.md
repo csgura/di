@@ -372,7 +372,7 @@ Not Supported. Use Instance Binding or Provider Binding
 binder.Bind((*MyConcreteClass)(nil).ToInstance(&MyConcreteClass{})
 ```
 
-## 6.11 Just-In-Time Binding  ( akka JIT Binding or implicit Binding )
+## 6.11 Just-In-Time Binding  ( aka JIT Binding or implicit Binding )
 ### di package
 Not Supported
 
