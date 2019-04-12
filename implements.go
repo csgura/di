@@ -82,23 +82,21 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 		}
 	}
 	if hasOverride {
-		for _, binding := range binder.bindRecords {
-			binder.setIgnoreDuplicate(binding.tpe)
-		}
 
-		binder.ignoreDuplicate = true
+		overBinder := newBinder()
+
 		for _, name := range moduleNames {
 			module := r.implements[name]
 			if module != nil {
 				if overriden, ok := module.(*orverriden); ok {
 					for _, m := range overriden.modules {
-						m.Configure(binder)
+						m.Configure(overBinder)
 					}
 				}
 			}
 		}
-		binder.ignoreDuplicate = false
-		binder.clearIgnoreSet()
+
+		binder.merge(overBinder, false)
 	}
 
 	injector := &injectorImpl{binder, make(map[string]string)}

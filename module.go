@@ -22,22 +22,20 @@ type orverriden struct {
 }
 
 func (r *orverriden) Configure(binder *Binder) {
-	current := len(binder.bindRecords)
+
+	tempBinder := newBinder()
 	for _, m := range r.overrides {
-		m.Configure(binder)
-	}
-	delta := binder.bindRecords[current:]
-
-	for _, binding := range delta {
-		binder.setIgnoreDuplicate(binding.tpe)
+		m.Configure(tempBinder)
 	}
 
-	binder.ignoreDuplicate = true
+	tempBinder.ignoreDuplicate = true
+
 	for _, m := range r.modules {
-		m.Configure(binder)
+		m.Configure(tempBinder)
 	}
-	binder.ignoreDuplicate = false
-	binder.clearIgnoreSet()
+
+	binder.merge(tempBinder, true)
+
 }
 
 func (r *orverriden) With(overrides ...AbstractModule) AbstractModule {

@@ -57,7 +57,7 @@ func (b *Binding) AsNonSingleton() *Binding {
 // ShouldCreateBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
 func (b *Binding) ShouldCreateBefore(ptrToType interface{}) *Binding {
 
-	b.binder.shouldCreateBefore(ptrToType, b)
+	b.binder.shouldCreateBefore(reflect.TypeOf(ptrToType), b)
 	return b
 }
 
@@ -67,12 +67,9 @@ type Binder struct {
 	providersFallback map[reflect.Type]*Binding
 	creatingBefore    map[reflect.Type][]*Binding
 	ignoreDuplicate   bool
-	ignoreSet         map[reflect.Type]bool
-	bindRecords       []*Binding
 }
 
-func (b *Binder) shouldCreateBefore(ptrToType interface{}, binding *Binding) {
-	t := reflect.TypeOf(ptrToType)
+func (b *Binder) shouldCreateBefore(t reflect.Type, binding *Binding) {
 	list := b.creatingBefore[t]
 
 	list = append(list, binding)
@@ -100,35 +97,43 @@ func (b *Binder) IfNotBinded(ptrToType interface{}) *Binding {
 	}
 }
 
-func (b *Binder) clearIgnoreSet() {
-	b.ignoreSet = map[reflect.Type]bool{}
-}
-
-func (b *Binder) setIgnoreDuplicate(bindType reflect.Type) {
-	b.ignoreSet[bindType] = true
-}
-
 func (b *Binder) bind(binding *Binding) {
 	t := binding.tpe
 	if binding.isFallback {
 		if b.providersFallback[t] == nil {
 			b.providersFallback[t] = binding
-			b.bindRecords = append(b.bindRecords, binding)
 		}
 	} else {
 		if b.providers[t] == nil {
 			b.providers[t] = binding
-			b.bindRecords = append(b.bindRecords, binding)
 		} else {
 			if !b.ignoreDuplicate {
 				panic("duplicated bind for " + t.String())
-			} else {
-				if !b.ignoreSet[t] {
-					panic("duplicated bind for " + t.String())
-				}
 			}
 		}
 	}
+}
+
+func (b *Binder) merge(other *Binder, panicOnDup bool) {
+	for k, v := range other.providers {
+		if b.providers[k] == nil {
+			b.providers[k] = v
+		} else if panicOnDup {
+			panic("duplicated bind for " + v.tpe.String())
+		}
+	}
+	for k, v := range other.providersFallback {
+		if b.providersFallback[k] == nil {
+			b.providersFallback[k] = v
+		}
+	}
+
+	for k, list := range other.creatingBefore {
+		for _, v := range list {
+			b.shouldCreateBefore(k, v)
+		}
+	}
+
 }
 
 // BindProvider binds intf type to provider function
@@ -196,6 +201,5 @@ func newBinder() *Binder {
 	ret.providersFallback = make(map[reflect.Type]*Binding)
 
 	ret.creatingBefore = make(map[reflect.Type][]*Binding)
-	ret.ignoreSet = map[reflect.Type]bool{}
 	return ret
 }
