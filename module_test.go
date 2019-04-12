@@ -100,3 +100,69 @@ func TestNotOverride(t *testing.T) {
 		t.Errorf("Value2 not binded")
 	}
 }
+
+func TestImplementsOverride(t *testing.T) {
+	impls := di.NewImplements()
+	impls.AddImplement("All", di.OverrideModule(di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1All"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2All"})
+		binder.Bind((*Value3)(nil)).ToInstance(&ValueImpl{"Value3All"})
+	})))
+
+	impls.AddImplement("V1", di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+	}))
+
+	impls.AddImplement("V2", di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+	}))
+
+	injector := impls.NewInjector([]string{"All", "V1", "V2"})
+	if injector.GetInstance((*Value1)(nil)).(Value1).Value() != "Value1" {
+		t.Errorf("Value1 not binded")
+	}
+
+	if injector.GetInstance((*Value2)(nil)).(Value1).Value() != "Value2" {
+		t.Errorf("Value2 not binded")
+	}
+
+	if injector.GetInstance((*Value3)(nil)).(Value1).Value() != "Value3All" {
+		t.Errorf("Value3 not binded")
+	}
+}
+
+func TestImplementsNotEmptyOverride(t *testing.T) {
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	impls := di.NewImplements()
+	impls.AddImplement("All", di.OverrideModule(di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1All"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2All"})
+		binder.Bind((*Value3)(nil)).ToInstance(&ValueImpl{"Value3All"})
+	})).With(di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+	})))
+
+	impls.AddImplement("V2", di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+	}))
+
+	injector := impls.NewInjector([]string{"All", "V2"})
+	if injector.GetInstance((*Value1)(nil)).(Value1).Value() != "Value1" {
+		t.Errorf("Value1 not binded")
+	}
+
+	if injector.GetInstance((*Value2)(nil)).(Value1).Value() != "Value2" {
+		t.Errorf("Value2 not binded")
+	}
+
+	if injector.GetInstance((*Value3)(nil)).(Value1).Value() != "Value3All" {
+		t.Errorf("Value3 not binded")
+	}
+}

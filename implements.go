@@ -66,14 +66,41 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 
 	binder.ignoreDuplicate = false
 
+	hasOverride := false
 	for _, m := range moduleNames {
 		module := r.implements[m]
 		if module != nil {
+			if overriden, ok := module.(*orverriden); ok {
+				if overriden.overrides == nil {
+					hasOverride = true
+					continue
+				}
+			}
 			r.implements[m].Configure(binder)
 		} else {
 			panic(fmt.Sprintf("module %s is not implemented", m))
 		}
 	}
+	if hasOverride {
+		for _, binding := range binder.bindRecords {
+			binder.setIgnoreDuplicate(binding.tpe)
+		}
+
+		binder.ignoreDuplicate = true
+		for _, name := range moduleNames {
+			module := r.implements[name]
+			if module != nil {
+				if overriden, ok := module.(*orverriden); ok {
+					for _, m := range overriden.modules {
+						m.Configure(binder)
+					}
+				}
+			}
+		}
+		binder.ignoreDuplicate = false
+		binder.clearIgnoreSet()
+	}
+
 	injector := &injectorImpl{binder, make(map[string]string)}
 
 	for t := range binder.providers {

@@ -476,6 +476,7 @@ type ValueInterface interface {
 
 type Value1 ValueInterface
 type Value2 ValueInterface
+type Value3 ValueInterface
 
 type ValueImpl struct {
 	value string
