@@ -264,7 +264,7 @@ binder.Bind((*TransactionLog)(nil)).ToProvider(provider);
 binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsEagerSingleton();
 ```
 
-* Non singleton ( default )
+* Non singleton ( not default )
 ```go
 binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsNonSingleton();
 ```
