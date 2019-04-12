@@ -9,7 +9,7 @@ type AbstractModule interface {
 ```
 Implement the AbstractModule
 
-## 1.1 singletone binding
+## 1.1 Instance Bindings
 If a module has no dependency with other modules
 ```go
 type BillingModule struct {
@@ -24,10 +24,10 @@ func (r *BillingModule) Configure ( binder *di.Binder ) {
 }
 ```
 
-## 1.2 Provider Binding
+## 1.2 Provider Bindings
 If a module has dependencies with other modules
 
-### singleton
+### Singleton
 ```go
 
  func (r *BillingModule) Configure ( binder *di.Binder ) {
@@ -45,14 +45,14 @@ If a module has dependencies with other modules
 }
 ```
 
-### non singleton
+### Non singleton
 ```go
-    binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsNonSingleton();
+binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsNonSingleton();
 ```
 
-### eager singleton
+### Eager singleton
 ```go
-    binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsEagerSingleton();
+binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsEagerSingleton();
 ```
 
 ## 1.3 Constructor Binding
@@ -70,6 +70,12 @@ binder.BindProvider((*TransactionLog)(nil),func(injector di.Injector) interface{
     return injector.InjectAndCall(NewDatabaseTransactionLog)
 })
 ```
+
+The Constructor function Should : 
+* Not Use Variadic Argument
+* Returns Single return value 
+* Returns Pointer for struct type
+
 
 # 2. Module Listup
 ```go
@@ -94,7 +100,7 @@ func GetImplements() *di.Implements {
 
 You can create injector using CreateInjector method with AbstractModule list
 ```go
-	injector := di.CreateInjector(&BillingModule{}, &OhterModule{})
+injector := di.CreateInjector(&BillingModule{}, &OhterModule{})
 ```
 
 Or you can create an Injector from implmentations with enabled module slice
@@ -173,7 +179,7 @@ public class BillingModule extends AbstractModule {
 ```
 
 ### di package
-Not Available.  Use Provider Binding or Constructor Binding
+Not Supported.  Use Provider Binding or Constructor Binding
 
 ## 6.3 Provider Bindings
 ### Guice 
@@ -337,7 +343,7 @@ bind(CreditCardProcessor.class)
 ```
 
 ### di package
-Not Available.
+Not Supported.
 Use type definition
 
 ```go
@@ -361,14 +367,14 @@ bind(AnotherConcreteClass.class).in(Singleton.class);
 ```
 
 ### di package
-Not Available. Use Instance Binding or Provider Binding
+Not Supported. Use Instance Binding or Provider Binding
 ```go
 binder.Bind((*MyConcreteClass)(nil).ToInstance(&MyConcreteClass{})
 ```
 
 ## 6.11 Just-In-Time Binding  ( akka JIT Binding or implicit Binding )
 ### di package
-Not Available
+Not Supported
 
 ## 6.12 Module Combine
 ### Guice
