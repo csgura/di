@@ -2,6 +2,7 @@ package di
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 )
 
@@ -100,6 +101,16 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 	}
 
 	injector := &injectorImpl{binder, make(map[string]string)}
+
+	var injectorIntf *Injector
+	injectorType := reflect.TypeOf(injectorIntf)
+
+	binder.providers[injectorType] = &Binding{
+		binder:      binder,
+		tpe:         injectorType,
+		instance:    injector,
+		isSingleton: true,
+	}
 
 	for t := range binder.providers {
 		if binder.providers[t].isEager {

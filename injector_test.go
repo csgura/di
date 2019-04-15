@@ -517,6 +517,7 @@ type Target struct {
 	NotNilGetValue GetValueFunc
 	Port           PrometheusPort
 	Address        PrometheusAddress
+	Injector       di.Injector
 }
 
 func TestInjectMembers(t *testing.T) {
@@ -627,6 +628,16 @@ func TestInjectMembers(t *testing.T) {
 		t.Errorf("target.NotNilGetValue() != NotNilGetValue")
 		return
 	}
+
+	if target.Port != 0 {
+		t.Errorf("target.Port != 0")
+		return
+	}
+
+	if target.Injector == nil {
+		t.Errorf("target.Injector == nil")
+		return
+	}
 }
 
 type TargetExplicit struct {
@@ -636,6 +647,7 @@ type TargetExplicit struct {
 	SubNotInject   SubStruct
 	Address        PrometheusAddress `di:"inject"`
 	Port           PrometheusPort    `di:"inject"`
+	Injector       di.Injector       `di:"inject"`
 }
 
 func TestInjectMembersExplicit(t *testing.T) {
@@ -703,6 +715,11 @@ func TestInjectMembersExplicit(t *testing.T) {
 
 	if target.Address != "google.com" {
 		t.Errorf("target.Address != google.com")
+		return
+	}
+
+	if target.Injector == nil {
+		t.Errorf("target.Injector == nil")
 		return
 	}
 }
