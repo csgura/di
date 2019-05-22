@@ -906,3 +906,44 @@ func TestDecorator(t *testing.T) {
 		t.Errorf("decorator not called")
 	}
 }
+
+type ClassA struct {
+	s *ClassS
+	t string
+}
+type ClassB struct {
+	s *ClassS
+	t string
+}
+type ClassS struct {
+	a *ClassA
+	t string
+}
+
+func TestDecoratorCycle(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ClassS)(nil)).ToInstance(&ClassS{t: "hello"})
+
+		binder.AddDecoratorOf((*ClassS)(nil), func(injector di.Injector) {
+			s := injector.GetInstance((*ClassS)(nil)).(*ClassS)
+			s.a = injector.GetInstance((*ClassA)(nil)).(*ClassA)
+			s.t = s.a.t
+		})
+
+		binder.BindConstructor((*ClassA)(nil), func(s *ClassS) interface{} {
+			return &ClassA{s, "a"}
+		})
+
+		binder.BindConstructor((*ClassB)(nil), func(s *ClassS) interface{} {
+			return &ClassB{s, "b"}
+		})
+
+	})
+
+	injector := di.NewInjector(implements, []string{})
+	s := injector.GetInstance((*ClassS)(nil)).(*ClassS)
+	if s.t != "a" {
+		t.Errorf("decorator not called")
+	}
+}
