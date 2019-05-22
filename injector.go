@@ -2,7 +2,9 @@ package di
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 )
 
@@ -99,7 +101,17 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 			r.getInstanceByType(shouldBefore.tpe)
 		}
 	}
+	//fmt.Printf("create instance of type %s\n", t)
 	return p.provider(r)
+}
+
+func (r *injectorContext) callDecorators(t reflect.Type) {
+	if list := r.injector.binder.decorators[t]; list != nil {
+		for _, decorator := range list {
+			//fmt.Printf("call decorator of %s\n", t)
+			decorator.provider(r)
+		}
+	}
 }
 
 func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
@@ -111,6 +123,7 @@ func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
 				if p.provider != nil {
 					ret = r.createInstance(t, p)
 					p.instance = ret
+					r.callDecorators(t)
 				}
 			}
 			return ret
@@ -128,6 +141,7 @@ func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
 				if p.provider != nil {
 					ret = r.createInstance(t, p)
 					p.instance = ret
+					r.callDecorators(t)
 				}
 			}
 			return ret
@@ -190,7 +204,8 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 				r.InjectMembers(nv.Interface())
 				args = append(args, nv)
 			} else {
-				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument at index %d", argtype.String(), i))
+				fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
+				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
 			}
 		} else {
 			args = append(args, reflect.ValueOf(instance).Convert(argtype))

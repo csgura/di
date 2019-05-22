@@ -873,3 +873,36 @@ func TestBindConstructor(t *testing.T) {
 	}
 
 }
+
+type Registry interface {
+	Register(name string, value interface{})
+	Get(name string) interface{}
+}
+
+type MapRegistry map[string]interface{}
+
+func (m MapRegistry) Register(name string, value interface{}) {
+
+	m[name] = value
+}
+
+func (m MapRegistry) Get(name string) interface{} {
+	return m[name]
+}
+func TestDecorator(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*Registry)(nil)).ToInstance(MapRegistry{})
+
+		binder.AddDecoratorOf((*Registry)(nil), func(injector di.Injector) {
+			regi := injector.GetInstance((*Registry)(nil)).(Registry)
+			regi.Register("hello", "world")
+		})
+	})
+
+	injector := di.NewInjector(implements, []string{})
+	regi := injector.GetInstance((*Registry)(nil)).(Registry)
+	if regi.Get("hello") != "world" {
+		t.Errorf("decorator not called")
+	}
+}

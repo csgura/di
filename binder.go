@@ -7,24 +7,41 @@ import (
 // Binding has provider function and created singlton instances
 // and it has some configurtions about binding
 type Binding struct {
-	binder      *Binder
-	tpe         reflect.Type
-	provider    func(injector Injector) interface{}
-	instance    interface{}
-	isSingleton bool
-	isEager     bool
-	isFallback  bool
+	binder        *Binder
+	tpe           reflect.Type
+	provider      func(injector Injector) interface{}
+	instance      interface{}
+	isSingleton   bool
+	isEager       bool
+	isFallback    bool
+	isDecoratorOf bool
 }
 
 // ToInstance binds type to singleton instance
 func (b *Binding) ToInstance(instance interface{}) *Binding {
-	b.instance = instance
-	b.binder.bind(b)
+
+	if b.isDecoratorOf {
+		panic("Decorator can't bind to instance")
+	}
+
+	// b.instance = instance
+	// b.binder.bind(b)
+
+	if b.provider == nil {
+		return b.ToProvider(func(injector Injector) interface{} {
+			return instance
+		}).AsEagerSingleton()
+	}
+
 	return b
 }
 
 // ToProvider binds type to the provider
 func (b *Binding) ToProvider(provider func(injector Injector) interface{}) *Binding {
+	if b.isDecoratorOf {
+		panic("Decorator can't bind to provider")
+	}
+
 	b.provider = provider
 	b.binder.bind(b)
 	return b
@@ -32,6 +49,10 @@ func (b *Binding) ToProvider(provider func(injector Injector) interface{}) *Bind
 
 // ToConstructor binds type to the constructor
 func (b *Binding) ToConstructor(function interface{}) *Binding {
+	if b.isDecoratorOf {
+		panic("Decorator can't bind to constructor")
+	}
+
 	return b.ToProvider(func(injector Injector) interface{} {
 		return injector.InjectAndCall(function)
 	})
@@ -39,24 +60,27 @@ func (b *Binding) ToConstructor(function interface{}) *Binding {
 
 // AsEagerSingleton set binding as eager singleton
 func (b *Binding) AsEagerSingleton() *Binding {
+	if b.isDecoratorOf {
+		panic("Decorator can't not be singleton")
+	}
+
 	b.isEager = true
 	return b
 }
 
 // AsNonSingleton set binding as non singleton
 func (b *Binding) AsNonSingleton() *Binding {
-	if b.provider != nil {
-		b.isSingleton = false
-	} else {
-		panic("call BindProvider to make non-singleton")
-	}
+
+	b.isSingleton = false
 
 	return b
 }
 
 // ShouldCreateBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
 func (b *Binding) ShouldCreateBefore(ptrToType interface{}) *Binding {
-
+	if b.isDecoratorOf {
+		panic("component can't not be should create before others")
+	}
 	b.binder.shouldCreateBefore(reflect.TypeOf(ptrToType), b)
 	return b
 }
@@ -66,7 +90,17 @@ type Binder struct {
 	providers         map[reflect.Type]*Binding
 	providersFallback map[reflect.Type]*Binding
 	creatingBefore    map[reflect.Type][]*Binding
+	decorators        map[reflect.Type][]*Binding
 	ignoreDuplicate   bool
+}
+
+func safeAppend(list []*Binding, b *Binding) []*Binding {
+	for _, v := range list {
+		if v == b {
+			return list
+		}
+	}
+	return append(list, b)
 }
 
 func (b *Binder) shouldCreateBefore(t reflect.Type, binding *Binding) {
@@ -74,6 +108,13 @@ func (b *Binder) shouldCreateBefore(t reflect.Type, binding *Binding) {
 
 	list = append(list, binding)
 	b.creatingBefore[t] = list
+}
+
+func (b *Binder) addDecorator(binding *Binding) {
+	list := b.decorators[binding.tpe]
+
+	list = safeAppend(list, binding)
+	b.decorators[binding.tpe] = list
 }
 
 // Bind returns Binding that it is not binded anything
@@ -97,21 +138,41 @@ func (b *Binder) IfNotBinded(ptrToType interface{}) *Binding {
 	}
 }
 
+// AddDecoratorOf add customizing function which will be applied to the created singleton instance
+// if the type is not singleton, then the decorator callback will not be called
+func (b *Binder) AddDecoratorOf(ptrToType interface{}, decorator func(ij Injector)) {
+	t := reflect.TypeOf(ptrToType)
+	b.bind(&Binding{
+		binder:        b,
+		tpe:           t,
+		isDecoratorOf: true,
+		provider: func(ij Injector) interface{} {
+			decorator(ij)
+			return nil
+		},
+	})
+}
+
 func (b *Binder) bind(binding *Binding) {
-	t := binding.tpe
-	if binding.isFallback {
-		if b.providersFallback[t] == nil {
-			b.providersFallback[t] = binding
-		}
+	if binding.isDecoratorOf {
+		b.addDecorator(binding)
 	} else {
-		if b.providers[t] == nil {
-			b.providers[t] = binding
+		t := binding.tpe
+		if binding.isFallback {
+			if b.providersFallback[t] == nil {
+				b.providersFallback[t] = binding
+			}
 		} else {
-			if !b.ignoreDuplicate {
-				panic("duplicated bind for " + t.String())
+			if b.providers[t] == nil {
+				b.providers[t] = binding
+			} else {
+				if !b.ignoreDuplicate {
+					panic("duplicated bind for " + t.String())
+				}
 			}
 		}
 	}
+
 }
 
 func (b *Binder) merge(other *Binder, panicOnDup bool) {
@@ -131,6 +192,12 @@ func (b *Binder) merge(other *Binder, panicOnDup bool) {
 	for k, list := range other.creatingBefore {
 		for _, v := range list {
 			b.shouldCreateBefore(k, v)
+		}
+	}
+
+	for _, list := range other.decorators {
+		for _, v := range list {
+			b.addDecorator(v)
 		}
 	}
 
@@ -201,5 +268,7 @@ func newBinder() *Binder {
 	ret.providersFallback = make(map[reflect.Type]*Binding)
 
 	ret.creatingBefore = make(map[reflect.Type][]*Binding)
+	ret.decorators = make(map[reflect.Type][]*Binding)
+
 	return ret
 }
