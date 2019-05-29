@@ -947,3 +947,110 @@ func TestDecoratorCycle(t *testing.T) {
 		t.Errorf("decorator not called")
 	}
 }
+
+func TestInjectValue(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return GetValueFunc(func() string {
+				return "GetValueFunc"
+			})
+		})
+
+		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			ret := SubStructPointer{}
+			injector.InjectMembers(&ret)
+			return &ret
+		})
+
+		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
+		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
+		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+
+		binder.Bind((*constructorResult)(nil)).ToConstructor(constructor)
+
+	})
+	injector := di.NewInjector(implements, []string{})
+
+	var v ValueInterface
+	if injector.InjectValue(&v) != nil {
+		t.Error("inject failed")
+	}
+	if v.Value() != "Value" {
+		t.Errorf("t.Value() != Value")
+	}
+
+	var v1 Value1
+	if injector.InjectValue(&v1) != nil {
+		t.Error("inject failed")
+	}
+	if v1.Value() != "Value1" {
+		t.Errorf("v1.Value() != Value1")
+	}
+
+	var f GetValueFunc
+	if injector.InjectValue(&f) != nil {
+		t.Error("inject failed")
+	}
+	if f() != "GetValueFunc" {
+		t.Error("f() != GetValueFunc")
+	}
+
+	var s *SubStructPointer
+
+	if injector.InjectValue(&s) != nil {
+		t.Error("inject failed")
+	}
+	if s.Value.Value() != "Value2" {
+		t.Error(`s.Value.Value() != "Value2"`)
+	}
+
+	var p PrometheusPort
+	if injector.InjectValue(&p) != nil {
+		t.Error("inject failed")
+	}
+	if p != 8080 {
+		t.Error(`p != 8080`)
+	}
+
+	var a PrometheusAddress
+	if injector.InjectValue(&a) != nil {
+		t.Error("inject failed")
+	}
+	if a != "google.com" {
+		t.Error(`a != "google.com"`)
+	}
+
+	var res *constructorResult
+	if injector.InjectValue(&res) != nil {
+		t.Error("inject failed")
+	}
+
+	if res.v1 == nil {
+		t.Errorf("res.v1 == nil")
+	}
+
+	if res.v2 == nil {
+		t.Errorf("res.v2 == nil")
+	}
+
+	if res.ptr == nil {
+		t.Errorf("res.ptr == nil")
+	}
+
+	if res.server == nil {
+		t.Errorf("res.server == nil")
+	}
+
+	if res.server.Address != "google.com" {
+		t.Errorf("res.server.Address != google.com")
+	}
+
+	if res.server.Port != 8080 {
+		t.Errorf("res.server.Port != 8080")
+	}
+
+}
