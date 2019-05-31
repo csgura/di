@@ -976,59 +976,44 @@ func TestInjectValue(t *testing.T) {
 	injector := di.NewInjector(implements, []string{})
 
 	var v ValueInterface
-	if injector.InjectValue(&v) != nil {
-		t.Error("inject failed")
-	}
+	injector.InjectValue(&v)
 	if v.Value() != "Value" {
 		t.Errorf("t.Value() != Value")
 	}
 
 	var v1 Value1
-	if injector.InjectValue(&v1) != nil {
-		t.Error("inject failed")
-	}
+	injector.InjectValue(&v1)
 	if v1.Value() != "Value1" {
 		t.Errorf("v1.Value() != Value1")
 	}
 
 	var f GetValueFunc
-	if injector.InjectValue(&f) != nil {
-		t.Error("inject failed")
-	}
+	injector.InjectValue(&f)
 	if f() != "GetValueFunc" {
 		t.Error("f() != GetValueFunc")
 	}
 
 	var s *SubStructPointer
 
-	if injector.InjectValue(&s) != nil {
-		t.Error("inject failed")
-	}
+	injector.InjectValue(&s)
 	if s.Value.Value() != "Value2" {
 		t.Error(`s.Value.Value() != "Value2"`)
 	}
 
 	var p PrometheusPort
-	if injector.InjectValue(&p) != nil {
-		t.Error("inject failed")
-	}
+	injector.InjectValue(&p)
 	if p != 8080 {
 		t.Error(`p != 8080`)
 	}
 
 	var a PrometheusAddress
-	if injector.InjectValue(&a) != nil {
-		t.Error("inject failed")
-	}
+	injector.InjectValue(&a)
 	if a != "google.com" {
 		t.Error(`a != "google.com"`)
 	}
 
 	var res *constructorResult
-	if injector.InjectValue(&res) != nil {
-		t.Error("inject failed")
-	}
-
+	injector.InjectValue(&res)
 	if res.v1 == nil {
 		t.Errorf("res.v1 == nil")
 	}

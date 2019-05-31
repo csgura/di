@@ -17,7 +17,7 @@ type Injector interface {
 	GetInstancesOf(ptrToType interface{}) []interface{}
 	InjectMembers(ptrToStruct interface{})
 	InjectAndCall(function interface{}) interface{}
-	InjectValue(ptrToInterface interface{}) error
+	InjectValue(ptrToInterface interface{})
 }
 
 type injectorImpl struct {
@@ -60,9 +60,9 @@ func (r *injectorImpl) InjectAndCall(function interface{}) interface{} {
 	return context.InjectAndCall(function)
 }
 
-func (r *injectorImpl) InjectValue(ptrToInterface interface{}) error {
+func (r *injectorImpl) InjectValue(ptrToInterface interface{}) {
 	context := injectorContext{r, make(map[reflect.Type]bool), nil}
-	return context.InjectValue(ptrToInterface)
+	context.InjectValue(ptrToInterface)
 }
 
 func (r *injectorImpl) GetProperty(propName string) string {
@@ -324,16 +324,16 @@ func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 	}
 }
 
-func (r *injectorContext) InjectValue(ptrToInterface interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic : %v ", r)
-		}
-	}()
+func (r *injectorContext) InjectValue(ptrToInterface interface{}) {
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		err = fmt.Errorf("panic : %v ", r)
+	// 	}
+	// }()
 
 	rv := reflect.ValueOf(ptrToInterface)
 	if rv.Kind() != reflect.Ptr {
-		return fmt.Errorf("argument is not pointer")
+		panic(fmt.Errorf("argument is not pointer"))
 	}
 
 	if rv.Type().Elem().Kind() == reflect.Ptr {
@@ -341,13 +341,12 @@ func (r *injectorContext) InjectValue(ptrToInterface interface{}) (err error) {
 
 		rv.Elem().Set(reflect.ValueOf(v))
 
-		return nil
+	} else {
+
+		v := r.GetInstance(ptrToInterface)
+
+		rv.Elem().Set(reflect.ValueOf(v).Convert(rv.Type().Elem()))
 	}
-
-	v := r.GetInstance(ptrToInterface)
-
-	rv.Elem().Set(reflect.ValueOf(v).Convert(rv.Type().Elem()))
-	return nil
 }
 
 // NewInjector returns new Injector from implements with enabled modulenames
