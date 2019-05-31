@@ -31,6 +31,11 @@ func (r *Implements) HasImplement(name string) bool {
 	return exists
 }
 
+// GetImplement returns AbstractModule
+func (r *Implements) GetImplement(name string) AbstractModule {
+	return r.implements[name]
+}
+
 // AddImplements adds all named AbstraceModule of impl to this
 func (r *Implements) AddImplements(impl *Implements) {
 	for k, v := range impl.implements {
