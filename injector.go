@@ -129,7 +129,9 @@ func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
 				if p.provider != nil {
 					ret = r.createInstance(t, p)
 					p.instance = ret
-					r.callDecorators(t)
+					if p.instance != nil {
+						r.callDecorators(t)
+					}
 				}
 			}
 			return ret
