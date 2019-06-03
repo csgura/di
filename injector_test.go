@@ -1039,3 +1039,23 @@ func TestInjectValue(t *testing.T) {
 	}
 
 }
+
+func TestInjectDecorator(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.AddDecoratorOf((*di.Injector)(nil), func(injector di.Injector) {
+			injector.SetProperty("hello", "world")
+		})
+
+		binder.Bind((*ValueInterface)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return &ValueImpl{injector.GetProperty("hello")}
+		}).AsEagerSingleton()
+	})
+
+	injector := implements.NewInjector(nil)
+	var v ValueInterface
+	injector.InjectValue(&v)
+	if v.Value() != "world" {
+		t.Errorf("t.Value != world")
+	}
+}

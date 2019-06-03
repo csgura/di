@@ -117,6 +117,9 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 		isSingleton: true,
 	}
 
+	context := injectorContext{injector, make(map[reflect.Type]bool), nil}
+	context.callDecorators(injectorType)
+
 	for t := range binder.providers {
 		if binder.providers[t].isEager {
 			injector.getInstanceByType(t)
