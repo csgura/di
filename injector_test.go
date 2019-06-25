@@ -265,6 +265,7 @@ type CloserModule struct {
 }
 
 type Closeable1 struct {
+	world string
 }
 
 type Closeable2 struct {
@@ -284,7 +285,10 @@ func (*Closeable2) Close() error {
 }
 
 func (*CloserModule) Configure(binder *di.Binder) {
-	binder.BindSingleton((*Closeable1)(nil), &Closeable1{})
+	c1 := &Closeable1{}
+	type Closeable3 Closeable1
+	binder.BindSingleton((*Closeable1)(nil), c1)
+	binder.BindSingleton((*Closeable3)(nil), c1)
 	binder.BindSingleton((*Closeable2)(nil), &Closeable2{})
 	binder.BindSingleton((*NotCloseable)(nil), &NotCloseable{})
 }

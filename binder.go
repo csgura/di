@@ -227,8 +227,23 @@ func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
 	eq = realType.Implements(interfaceType)
 	return eq
 }
+
 func (b *Binder) getInstancesOf(ptrToType interface{}) []interface{} {
 	var ret []interface{}
+	dupcheck := map[interface{}]bool{}
+
+	checkDup := func(realType reflect.Type, instance interface{}) bool {
+		if realType.Comparable() {
+			if _, ok := dupcheck[instance]; !ok {
+				dupcheck[instance] = true
+				return true
+			}
+			return false
+
+		}
+		return true
+	}
+
 	interfaceType := reflect.TypeOf(ptrToType).Elem()
 
 	for k := range b.providers {
@@ -241,15 +256,21 @@ func (b *Binder) getInstancesOf(ptrToType interface{}) []interface{} {
 			//fmt.Printf("assign = %t \n", interfaceType.AssignableTo(realType))
 			if interfaceType.Kind() == reflect.Interface {
 				if isImplements(realType, interfaceType) {
-					ret = append(ret, p.instance)
+					if checkDup(realType, p.instance) {
+						ret = append(ret, p.instance)
+					}
 				}
 			} else {
 				if realType.Kind() == reflect.Ptr {
 					if interfaceType == realType.Elem() {
-						ret = append(ret, p.instance)
+						if checkDup(realType, p.instance) {
+							ret = append(ret, p.instance)
+						}
 					}
 				} else if interfaceType == realType {
-					ret = append(ret, p.instance)
+					if checkDup(realType, p.instance) {
+						ret = append(ret, p.instance)
+					}
 				}
 			}
 		}
