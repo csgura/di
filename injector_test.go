@@ -645,13 +645,16 @@ func TestInjectMembers(t *testing.T) {
 }
 
 type TargetExplicit struct {
-	ValueInject    ValueInterface `di:"inject"`
+	ValueInject ValueInterface `di:"inject,nilable"`
+	notExported ValueInterface `di:"inject"`
+
 	ValueNotInject ValueInterface
 	Sub            SubStruct `di:"inject"`
 	SubNotInject   SubStruct
 	Address        PrometheusAddress `di:"inject"`
 	Port           PrometheusPort    `di:"inject"`
 	Injector       di.Injector       `di:"inject"`
+	Nilable        Hello             `di:"inject,nilable"`
 }
 
 func TestInjectMembersExplicit(t *testing.T) {
@@ -724,6 +727,16 @@ func TestInjectMembersExplicit(t *testing.T) {
 
 	if target.Injector == nil {
 		t.Errorf("target.Injector == nil")
+		return
+	}
+
+	if target.notExported != nil {
+		t.Errorf("target.notExported != nil")
+		return
+	}
+
+	if target.Nilable != nil {
+		t.Errorf("target.Nilable != nil")
 		return
 	}
 }
