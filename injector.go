@@ -372,6 +372,9 @@ func (r *injectorContext) InjectValue(ptrToInterface interface{}) {
 	} else {
 
 		v := r.GetInstance(ptrToInterface)
+		if v == nil {
+			panic(fmt.Sprintf("%s is Not Binded.", rv.Type().Elem()))
+		}
 
 		rv.Elem().Set(reflect.ValueOf(v).Convert(rv.Type().Elem()))
 	}
