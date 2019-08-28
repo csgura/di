@@ -1076,3 +1076,32 @@ func TestInjectDecorator(t *testing.T) {
 		t.Errorf("t.Value != world")
 	}
 }
+
+func TestNilPointerBinding(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+
+		binder.Bind((*ValueImpl)(nil)).ToProvider(func(injector di.Injector) interface{} {
+
+			var ret *ValueImpl
+
+			return ret
+		})
+	})
+
+	injector := implements.NewInjector(nil)
+	var v *ValueImpl
+	injector.InjectValue(&v)
+
+	if v == nil {
+		t.Errorf("t == nil")
+	}
+
+}
