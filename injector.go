@@ -12,6 +12,20 @@ import (
 // TraceType is trace event type
 type TraceType int
 
+func (r TraceType) String() string {
+	switch r {
+	case InstanceRequest:
+		return "Request Instance"
+	case InstanceWillBeCreated:
+		return "Creating Instance"
+	case InstanceCreated:
+		return "Create Instance"
+	case InstanceReturned:
+		return "Instance Returned"
+	}
+	return ""
+}
+
 const (
 	// InstanceRequest is trace event
 	InstanceRequest TraceType = iota
@@ -21,6 +35,9 @@ const (
 
 	// InstanceCreated is trace event
 	InstanceCreated
+
+	// InstanceReturned is trace event
+	InstanceReturned
 )
 
 // TraceInfo is trace message
@@ -33,23 +50,24 @@ type TraceInfo struct {
 	ElapsedTime      time.Duration
 	IsSingleton      bool
 	IsBinded         bool
+	IsEager          bool
 }
 
 func (r *TraceInfo) String() string {
 	if r == nil {
 		return ""
 	}
-	if r.TraceType == InstanceRequest {
+	if r.TraceType == InstanceCreated {
 		if r.Referer != nil {
-			return fmt.Sprintf("Request Instance of %s , Referer : %s", r.RequestedType, r.Referer)
+			return fmt.Sprintf("Create Instance of %s , Referer : %s , ElapsedTime : %s", r.RequestedType, r.Referer, r.ElapsedTime)
 		}
-		return fmt.Sprintf("Request Instance of %s", r.RequestedType)
+		return fmt.Sprintf("Create Instance of %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
 	}
-	if r.Referer != nil {
-		return fmt.Sprintf("Create Instance of %s , Referer : %s , ElapsedTime : %s", r.RequestedType, r.Referer, r.ElapsedTime)
-	}
-	return fmt.Sprintf("Create Instance of %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
 
+	if r.Referer != nil {
+		return fmt.Sprintf("%s of %s , Referer : %s", r.TraceType, r.RequestedType, r.Referer)
+	}
+	return fmt.Sprintf("%s of %s", r.TraceType, r.RequestedType)
 }
 
 // TraceCallback is trace call back function
@@ -214,85 +232,119 @@ func (r *injectorContext) callDecorators(t reflect.Type) {
 	}
 }
 
-func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
+func (r *injectorContext) getBinding(t reflect.Type) *Binding {
+	p := r.injector.binder.providers[t]
+	if p != nil {
+		return p
+	}
+
+	p = r.injector.binder.providersFallback[t]
+	if p != nil {
+		return p
+	}
+	return nil
+}
+
+func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
+
+	if p == nil {
+		return nil
+	}
+
 	var referer reflect.Type
 	if len(r.refererStack) > 0 {
 		referer = r.refererStack[len(r.refererStack)-1]
 	}
 
-	r.refererStack = append(r.refererStack, t)
+	r.refererStack = append(r.refererStack, p.tpe)
 	defer func() {
 		r.refererStack = r.refererStack[0 : len(r.refererStack)-1]
 	}()
 
-	p := r.injector.binder.providers[t]
-	if p != nil {
-		if r.traceCallback != nil && referer != t {
-			r.traceCallback(&TraceInfo{
-				TraceType:     InstanceRequest,
-				RequestedType: t,
-				Referer:       referer,
-				IsBinded:      true,
-				IsSingleton:   p.isSingleton,
-			})
-		}
+	if r.traceCallback != nil && referer != p.tpe {
 
-		if p.isSingleton {
-			ret := p.instance
-			if ret == nil {
-				if p.provider != nil {
-					ret = r.createInstance(t, p)
-					p.instance = ret
-					if p.instance != nil {
-						r.callDecorators(t)
+		r.traceCallback(&TraceInfo{
+			TraceType:     InstanceRequest,
+			RequestedType: p.tpe,
+			Referer:       referer,
+			IsBinded:      true,
+			IsSingleton:   p.isSingleton,
+			IsEager:       p.isEager,
+		})
+
+	}
+
+	ret := func() interface{} {
+		if p != nil {
+			if p.isSingleton {
+				ret := p.instance
+				if ret == nil {
+					if p.provider != nil {
+						ret = r.createInstance(p.tpe, p)
+						p.instance = ret
+						if p.instance != nil {
+							r.callDecorators(p.tpe)
+						}
 					}
 				}
+				return ret
 			}
+			ret := r.createInstance(p.tpe, p)
 			return ret
 		}
-		ret := r.createInstance(t, p)
-		return ret
+		return nil
+	}()
 
+	if r.traceCallback != nil && referer != p.tpe {
+
+		r.traceCallback(&TraceInfo{
+			TraceType:        InstanceReturned,
+			RequestedType:    p.tpe,
+			Referer:          referer,
+			IsBinded:         true,
+			IsSingleton:      p.isSingleton,
+			IsEager:          p.isEager,
+			ReturnedInstance: ret,
+		})
 	}
+	return ret
+}
 
-	p = r.injector.binder.providersFallback[t]
-	if p != nil {
-		if r.traceCallback != nil && referer != t {
-			r.traceCallback(&TraceInfo{
-				TraceType:     InstanceRequest,
-				RequestedType: t,
-				Referer:       referer,
-				IsBinded:      true,
-				IsSingleton:   p.isSingleton,
-			})
+func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
+
+	p := r.getBinding(t)
+
+	if p == nil {
+
+		var referer reflect.Type
+		if len(r.refererStack) > 0 {
+			referer = r.refererStack[len(r.refererStack)-1]
 		}
 
-		if p.isSingleton {
-			ret := p.instance
-			if ret == nil {
-				if p.provider != nil {
-					ret = r.createInstance(t, p)
-					p.instance = ret
-					r.callDecorators(t)
-				}
-			}
-			return ret
-		}
-		ret := r.createInstance(t, p)
-		return ret
-
-	}
-
-	if r.traceCallback != nil {
 		r.traceCallback(&TraceInfo{
 			TraceType:     InstanceRequest,
 			RequestedType: t,
 			Referer:       referer,
 			IsBinded:      false,
+			IsSingleton:   false,
+			IsEager:       false,
 		})
-	}
 
-	return nil
+		r.traceCallback(&TraceInfo{
+			TraceType:        InstanceReturned,
+			RequestedType:    t,
+			Referer:          referer,
+			IsBinded:         false,
+			IsSingleton:      false,
+			IsEager:          false,
+			ReturnedInstance: nil,
+		})
+
+		return nil
+	}
+	ret := r.getInstanceByBinding(p)
+	return ret
+
 }
 
 func (r *injectorContext) GetInstance(ptrToType interface{}) interface{} {
@@ -361,16 +413,16 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 		if bindtype.Kind() != reflect.Ptr {
 			bindtype = reflect.PtrTo(argtype)
 		}
-		instance := r.getInstanceByType(bindtype)
+
+		binding := r.getBinding(bindtype)
+		if binding == nil && argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
+			binding = r.createJitBinding(r.injector.binder, argtype, bindtype)
+		}
+		instance := r.getInstanceByBinding(binding)
+
 		if instance == nil {
-			if argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
-				jitBinding := r.createJitBinding(r.injector.binder, argtype, bindtype)
-				nv := r.createInstance(argtype, jitBinding)
-				args = append(args, reflect.ValueOf(nv))
-			} else {
-				fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
-				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
-			}
+			fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
+			panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
 		} else {
 			args = append(args, reflect.ValueOf(instance).Convert(argtype))
 		}
