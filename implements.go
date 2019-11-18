@@ -117,7 +117,7 @@ func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback Tr
 		isSingleton: true,
 	}
 
-	context := injectorContext{injector, make(map[reflect.Type]bool), nil, traceCallback}
+	context := injectorContext{injector, make(map[reflect.Type]bool), nil, nil, traceCallback}
 	context.callDecorators(injectorType)
 
 	for t := range binder.providers {

@@ -77,12 +77,13 @@ type injectorContext struct {
 	injector      *injectorImpl
 	loopCheck     map[reflect.Type]bool
 	stack         []reflect.Type
+	refererStack  []reflect.Type
 	traceCallback TraceCallback
 }
 
 func (r *injectorImpl) GetInstance(ptrToType interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
 	return context.GetInstance(ptrToType)
 }
 
@@ -93,24 +94,24 @@ func (r *injectorImpl) GetInstancesOf(ptrToType interface{}) []interface{} {
 
 func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
 	return context.getInstanceByType(t)
 }
 
 func (r *injectorImpl) InjectMembers(ptrToStruct interface{}) {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
 	context.InjectMembers(ptrToStruct)
 }
 
 func (r *injectorImpl) InjectAndCall(function interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
 	return context.InjectAndCall(function)
 }
 
 func (r *injectorImpl) InjectValue(ptrToInterface interface{}) {
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
 	context.InjectValue(ptrToInterface)
 }
 
@@ -215,13 +216,18 @@ func (r *injectorContext) callDecorators(t reflect.Type) {
 
 func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
 	var referer reflect.Type
-	if len(r.stack) > 0 {
-		referer = r.stack[len(r.stack)-1]
+	if len(r.refererStack) > 0 {
+		referer = r.refererStack[len(r.refererStack)-1]
 	}
+
+	r.refererStack = append(r.refererStack, t)
+	defer func() {
+		r.refererStack = r.refererStack[0 : len(r.refererStack)-1]
+	}()
 
 	p := r.injector.binder.providers[t]
 	if p != nil {
-		if r.traceCallback != nil {
+		if r.traceCallback != nil && referer != t {
 			r.traceCallback(&TraceInfo{
 				TraceType:     InstanceRequest,
 				RequestedType: t,
@@ -251,7 +257,7 @@ func (r *injectorContext) getInstanceByType(t reflect.Type) interface{} {
 
 	p = r.injector.binder.providersFallback[t]
 	if p != nil {
-		if r.traceCallback != nil {
+		if r.traceCallback != nil && referer != t {
 			r.traceCallback(&TraceInfo{
 				TraceType:     InstanceRequest,
 				RequestedType: t,
