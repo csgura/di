@@ -61,6 +61,7 @@ func (r *Implements) Clone() *Implements {
 	return ret
 }
 
+// NewInjectorWithTrace creates injector and call callback function when instances are created
 func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback TraceCallback) Injector {
 	binder := newBinder()
 
@@ -147,10 +148,10 @@ func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.D
 
 	go func() {
 		ret := r.NewInjectorWithTrace(moduleNames, func(info *TraceInfo) {
-			if info.TraceType == InstanceRequest {
+			if info.TraceType == InstanceWillBeCreated {
 				lastRequested = info
 				requested[info.RequestedType] = info
-			} else {
+			} else if info.TraceType == InstanceCreated {
 				delete(requested, info.RequestedType)
 				lastCreated = info
 				if longest == nil || info.ElapsedTime > longest.ElapsedTime {
