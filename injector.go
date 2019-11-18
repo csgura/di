@@ -26,18 +26,21 @@ type TraceInfo struct {
 }
 
 func (r *TraceInfo) String() string {
+	if r == nil {
+		return ""
+	}
 	if r.TraceType == InstanceRequest {
 		if r.Referer != nil {
-			return fmt.Sprintf("Requesed Instance of %s , Referer : %s", r.RequestedType, r.Referer)
+			return fmt.Sprintf("Request Instance of %s , Referer : %s", r.RequestedType, r.Referer)
 		} else {
-			return fmt.Sprintf("Requesed Instance of %s", r.RequestedType)
+			return fmt.Sprintf("Request Instance of %s", r.RequestedType)
 
 		}
 	} else {
 		if r.Referer != nil {
-			return fmt.Sprintf("Created Instance of %s , Referer : %s , ElapsedTime : %s", r.RequestedType, r.Referer, r.ElapsedTime)
+			return fmt.Sprintf("Create Instance of %s , Referer : %s , ElapsedTime : %s", r.RequestedType, r.Referer, r.ElapsedTime)
 		} else {
-			return fmt.Sprintf("Created Instance of %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
+			return fmt.Sprintf("Create Instance of %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
 
 		}
 	}

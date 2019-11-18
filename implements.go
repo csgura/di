@@ -139,8 +139,21 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.Duration) Injector {
 	ch := make(chan Injector)
 
+	var lastRequested *TraceInfo
+	var lastCreated *TraceInfo
+	var longest *TraceInfo
+
 	go func() {
-		ret := r.NewInjector(moduleNames)
+		ret := r.NewInjectorWithTrace(moduleNames, func(info *TraceInfo) {
+			if info.TraceType == InstanceRequest {
+				lastRequested = info
+			} else {
+				lastCreated = info
+				if longest == nil || info.ElapsedTime > longest.ElapsedTime {
+					longest = info
+				}
+			}
+		})
 		ch <- ret
 	}()
 
@@ -149,7 +162,7 @@ func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.D
 	case injector := <-ch:
 		return injector
 	case <-timer.C:
-		panic(fmt.Sprintf("Creation failed within the time limit : %d", timeout))
+		panic(fmt.Sprintf("Creation failed within the time limit : %d\n\tLast %s\n\tLast %s\n\tlongest time to %s", timeout, lastRequested, lastCreated, longest))
 	}
 }
 
