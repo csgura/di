@@ -9,6 +9,42 @@ import (
 	"time"
 )
 
+type TraceType int
+
+const (
+	InstanceRequest TraceType = iota
+	InstanceCreated
+)
+
+type TraceInfo struct {
+	TraceType        TraceType
+	RequestedType    reflect.Type
+	Referer          reflect.Type
+	ReturnedInstance interface{}
+	IsCreatedNow     bool
+	ElapsedTime      time.Duration
+}
+
+func (r *TraceInfo) String() string {
+	if r.TraceType == InstanceRequest {
+		if r.Referer != nil {
+			return fmt.Sprintf("Requesed Instance of %s , Referer : %s", r.RequestedType, r.Referer)
+		} else {
+			return fmt.Sprintf("Requesed Instance of %s", r.RequestedType)
+
+		}
+	} else {
+		if r.Referer != nil {
+			return fmt.Sprintf("Created Instance of %s , Referer : %s , ElapsedTime : %s", r.RequestedType, r.Referer, r.ElapsedTime)
+		} else {
+			return fmt.Sprintf("Created Instance of %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
+
+		}
+	}
+}
+
+type TraceCallback func(info *TraceInfo)
+
 // Injector used to get instance
 type Injector interface {
 	GetInstance(ptrToType interface{}) interface{}
@@ -22,19 +58,21 @@ type Injector interface {
 }
 
 type injectorImpl struct {
-	binder *Binder
-	props  map[string]string
+	binder        *Binder
+	props         map[string]string
+	traceCallback TraceCallback
 }
 
 type injectorContext struct {
-	injector  *injectorImpl
-	loopCheck map[reflect.Type]bool
-	stack     []reflect.Type
+	injector      *injectorImpl
+	loopCheck     map[reflect.Type]bool
+	stack         []reflect.Type
+	traceCallback TraceCallback
 }
 
 func (r *injectorImpl) GetInstance(ptrToType interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
 	return context.GetInstance(ptrToType)
 }
 
@@ -45,24 +83,24 @@ func (r *injectorImpl) GetInstancesOf(ptrToType interface{}) []interface{} {
 
 func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
 	return context.getInstanceByType(t)
 }
 
 func (r *injectorImpl) InjectMembers(ptrToStruct interface{}) {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
 	context.InjectMembers(ptrToStruct)
 }
 
 func (r *injectorImpl) InjectAndCall(function interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
 	return context.InjectAndCall(function)
 }
 
 func (r *injectorImpl) InjectValue(ptrToInterface interface{}) {
-	context := injectorContext{r, make(map[reflect.Type]bool), nil}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, r.traceCallback}
 	context.InjectValue(ptrToInterface)
 }
 
@@ -83,6 +121,11 @@ func (r *injectorContext) SetProperty(propName string, value string) {
 }
 
 func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{} {
+	var referer reflect.Type
+	if len(r.stack) > 0 {
+		referer = r.stack[len(r.stack)-1]
+	}
+
 	r.stack = append(r.stack, t)
 	if r.loopCheck[t] == true {
 		loopStr := ""
@@ -108,8 +151,28 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 			r.getInstanceByType(shouldBefore.tpe)
 		}
 	}
+
+	before := time.Now()
 	//fmt.Printf("create instance of type %s\n", t)
-	return p.provider(r)
+	if r.traceCallback != nil {
+		r.traceCallback(&TraceInfo{
+			TraceType:     InstanceRequest,
+			RequestedType: t,
+			Referer:       referer,
+		})
+	}
+	ret := p.provider(r)
+	after := time.Now()
+	if r.traceCallback != nil {
+		r.traceCallback(&TraceInfo{
+			TraceType:     InstanceRequest,
+			RequestedType: t,
+			Referer:       referer,
+			IsCreatedNow:  true,
+			ElapsedTime:   after.Sub(before),
+		})
+	}
+	return ret
 }
 
 func (r *injectorContext) callDecorators(t reflect.Type) {

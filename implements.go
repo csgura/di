@@ -60,9 +60,7 @@ func (r *Implements) Clone() *Implements {
 	return ret
 }
 
-// NewInjector returns new Injector from implements with enabled modulenames
-func (r *Implements) NewInjector(moduleNames []string) Injector {
-
+func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback TraceCallback) Injector {
 	binder := newBinder()
 
 	binder.ignoreDuplicate = true
@@ -105,7 +103,7 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 		binder.merge(overBinder, false)
 	}
 
-	injector := &injectorImpl{binder, make(map[string]string)}
+	injector := &injectorImpl{binder, make(map[string]string), traceCallback}
 
 	var injectorIntf *Injector
 	injectorType := reflect.TypeOf(injectorIntf)
@@ -117,7 +115,7 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 		isSingleton: true,
 	}
 
-	context := injectorContext{injector, make(map[reflect.Type]bool), nil}
+	context := injectorContext{injector, make(map[reflect.Type]bool), nil, traceCallback}
 	context.callDecorators(injectorType)
 
 	for t := range binder.providers {
@@ -127,6 +125,13 @@ func (r *Implements) NewInjector(moduleNames []string) Injector {
 		}
 	}
 	return injector
+}
+
+// NewInjector returns new Injector from implements with enabled modulenames
+func (r *Implements) NewInjector(moduleNames []string) Injector {
+	return r.Clone().NewInjectorWithTrace(moduleNames, func(info *TraceInfo) {
+
+	})
 }
 
 // NewInjectorWithTimeout returns new Injector from implements with enabled modulenames
