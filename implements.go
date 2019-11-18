@@ -3,6 +3,7 @@ package di
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -142,12 +143,15 @@ func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.D
 	var lastRequested *TraceInfo
 	var lastCreated *TraceInfo
 	var longest *TraceInfo
+	requested := map[reflect.Type]*TraceInfo{}
 
 	go func() {
 		ret := r.NewInjectorWithTrace(moduleNames, func(info *TraceInfo) {
 			if info.TraceType == InstanceRequest {
 				lastRequested = info
+				requested[info.RequestedType] = info
 			} else {
+				delete(requested, info.RequestedType)
 				lastCreated = info
 				if longest == nil || info.ElapsedTime > longest.ElapsedTime {
 					longest = info
@@ -162,7 +166,13 @@ func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.D
 	case injector := <-ch:
 		return injector
 	case <-timer.C:
-		panic(fmt.Sprintf("Creation failed within the time limit : %d\n\tLast %s\n\tLast %s\n\tlongest time to %s", timeout, lastRequested, lastCreated, longest))
+		builder := strings.Builder{}
+		builder.WriteString("Not completed : \n\t\t")
+		for _, v := range requested {
+			builder.WriteString(v.String())
+			builder.WriteString("\n\t\t")
+		}
+		panic(fmt.Sprintf("Creation failed within the time limit : %d\n\tLast %s\n\tLast %s\n\tlongest time to %s\n\t%s", timeout, lastRequested, lastCreated, longest, builder.String()))
 	}
 }
 

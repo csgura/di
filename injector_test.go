@@ -1105,3 +1105,45 @@ func TestNilPointerBinding(t *testing.T) {
 	}
 
 }
+
+func constructorTimeout(v1 ValueInterface, v2 Value1, ptr *SubStructPointer, server *PrometheusServerInfo) *constructorResult {
+	time.Sleep(50 * time.Millisecond)
+	return &constructorResult{v1, v2, ptr, server}
+}
+
+func TestInjectorTimeout(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		} else {
+			fmt.Println(r)
+		}
+	}()
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
+		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			return GetValueFunc(func() string {
+				return "GetValueFunc"
+			})
+		})
+
+		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+			ret := SubStructPointer{}
+			injector.InjectMembers(&ret)
+			return &ret
+		})
+
+		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
+		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
+		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+
+		binder.Bind((*constructorResult)(nil)).ToConstructor(constructorTimeout).AsEagerSingleton()
+
+	})
+	implements.NewInjectorWithTimeout(nil, 20*time.Millisecond)
+}

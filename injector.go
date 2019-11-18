@@ -168,7 +168,7 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 	after := time.Now()
 	if r.traceCallback != nil {
 		r.traceCallback(&TraceInfo{
-			TraceType:     InstanceRequest,
+			TraceType:     InstanceCreated,
 			RequestedType: t,
 			Referer:       referer,
 			IsCreatedNow:  true,
