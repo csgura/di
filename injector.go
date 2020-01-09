@@ -223,6 +223,18 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 	return ret
 }
 
+func (r *injectorContext) wrapInterceptor(t reflect.Type, instance interface{}) interface{} {
+	ret := instance
+	if list := r.injector.binder.interceptors[t]; list != nil {
+		for _, interceptor := range list {
+			if w := interceptor.interceptor(r, ret); w != nil {
+				ret = w
+			}
+		}
+	}
+	return ret
+}
+
 func (r *injectorContext) callDecorators(t reflect.Type) {
 	if list := r.injector.binder.decorators[t]; list != nil {
 		for _, decorator := range list {
@@ -281,6 +293,10 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 				if ret == nil {
 					if p.provider != nil {
 						ret = r.createInstance(p.tpe, p)
+						if ret != nil {
+							ret = r.wrapInterceptor(p.tpe, ret)
+						}
+
 						p.instance = ret
 						if p.instance != nil {
 							r.callDecorators(p.tpe)

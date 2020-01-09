@@ -15,6 +15,8 @@ type Binding struct {
 	isEager       bool
 	isFallback    bool
 	isDecoratorOf bool
+	isInterceptor bool
+	interceptor   interceptorProvider
 }
 
 // ToInstance binds type to singleton instance
@@ -85,12 +87,15 @@ func (b *Binding) ShouldCreateBefore(ptrToType interface{}) *Binding {
 	return b
 }
 
+type interceptorProvider func(injector Injector, instance interface{}) interface{}
+
 // Binder has bindings
 type Binder struct {
 	providers         map[reflect.Type]*Binding
 	providersFallback map[reflect.Type]*Binding
 	creatingBefore    map[reflect.Type][]*Binding
 	decorators        map[reflect.Type][]*Binding
+	interceptors      map[reflect.Type][]*Binding
 	ignoreDuplicate   bool
 }
 
@@ -115,6 +120,13 @@ func (b *Binder) addDecorator(binding *Binding) {
 
 	list = safeAppend(list, binding)
 	b.decorators[binding.tpe] = list
+}
+
+func (b *Binder) addInterceptor(binding *Binding) {
+	list := b.interceptors[binding.tpe]
+
+	list = safeAppend(list, binding)
+	b.interceptors[binding.tpe] = list
 }
 
 // Bind returns Binding that it is not binded anything
@@ -201,6 +213,12 @@ func (b *Binder) merge(other *Binder, panicOnDup bool) {
 		}
 	}
 
+	for _, list := range other.interceptors {
+		for _, v := range list {
+			b.addInterceptor(v)
+		}
+	}
+
 }
 
 // BindProvider binds intf type to provider function
@@ -218,6 +236,22 @@ func (b *Binder) BindSingleton(ptrToType interface{}, instance interface{}) *Bin
 	return b.Bind(ptrToType).ToInstance(instance)
 
 }
+
+// BindInterceptor binds interceptor
+func (b *Binder) BindInterceptor(
+	ptrToType interface{},
+	interceptorProvider func(injector Injector, instance interface{}) interface{},
+) {
+	t := reflect.TypeOf(ptrToType)
+	b.interceptors[t] = append(b.interceptors[t], &Binding{
+		binder:        b,
+		tpe:           t,
+		isInterceptor: true,
+		interceptor:   interceptorProvider,
+	})
+	//return b.Bind(ptrToType).ToInstance(instance)
+}
+
 func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -290,6 +324,7 @@ func newBinder() *Binder {
 
 	ret.creatingBefore = make(map[reflect.Type][]*Binding)
 	ret.decorators = make(map[reflect.Type][]*Binding)
+	ret.interceptors = make(map[reflect.Type][]*Binding)
 
 	return ret
 }

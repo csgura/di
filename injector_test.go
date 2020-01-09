@@ -1147,3 +1147,79 @@ func TestInjectorTimeout(t *testing.T) {
 	})
 	implements.NewInjectorWithTimeout(nil, 20*time.Millisecond)
 }
+
+type client interface {
+	Do(req string) string
+}
+
+type clientImpl struct{}
+
+func (r *clientImpl) Do(req string) string {
+	return "hello " + req
+}
+
+type clientLogger struct {
+	client
+}
+
+func (r *clientLogger) Do(req string) string {
+	res := r.client.Do(req)
+	fmt.Printf("req : %s, res : %s\n", req, res)
+	return "logged " + res
+}
+
+type Counter struct {
+	count int
+}
+
+type clientCounter struct {
+	counter *Counter
+	client
+}
+
+func (r *clientCounter) Do(req string) string {
+	r.counter.count++
+	return r.client.Do(req)
+}
+
+func TestInterceptor(t *testing.T) {
+	implements := di.NewImplements()
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindConstructor((*client)(nil), func() client {
+			return &clientImpl{}
+		})
+	})
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindInterceptor((*client)(nil), func(injector di.Injector, value interface{}) interface{} {
+			return &clientLogger{value.(client)}
+		})
+	})
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindSingleton((*Counter)(nil), &Counter{})
+		binder.BindInterceptor((*client)(nil), func(injector di.Injector, value interface{}) interface{} {
+			counter := injector.GetInstance((*Counter)(nil)).(*Counter)
+			return &clientCounter{counter, value.(client)}
+		})
+	})
+
+	injector := implements.NewInjector(nil)
+
+	var cli client
+	injector.InjectValue(&cli)
+
+	var counter *Counter
+	injector.InjectValue(&counter)
+
+	res := cli.Do("world")
+	if res != "logged hello world" {
+		t.Errorf("res = %s", res)
+	}
+
+	if counter.count != 1 {
+		t.Errorf("counter.count != 1 , %d", counter.count)
+	}
+
+}
