@@ -306,6 +306,9 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 				return ret
 			}
 			ret := r.createInstance(p.tpe, p)
+			if ret != nil {
+				ret = r.wrapInterceptor(p.tpe, ret)
+			}
 			return ret
 		}
 		return nil
