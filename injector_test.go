@@ -1223,3 +1223,30 @@ func TestInterceptor(t *testing.T) {
 	}
 
 }
+
+func TestBindToInstanceInjection(t *testing.T) {
+	implements := di.NewImplements()
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindConstructor((*client)(nil), func() client {
+			return &clientImpl{}
+		})
+	})
+
+	type proxy struct {
+		Cli client `di:"inject`
+	}
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindSingleton((*proxy)(nil), &proxy{})
+	})
+
+	injector := implements.NewInjector(nil)
+
+	var p *proxy
+	injector.InjectValue(&p)
+
+	if p.Cli == nil {
+		t.Errorf("p.Cli is nil")
+	}
+}

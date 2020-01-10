@@ -31,6 +31,7 @@ func (b *Binding) ToInstance(instance interface{}) *Binding {
 
 	if b.provider == nil {
 		return b.ToProvider(func(injector Injector) interface{} {
+			injector.InjectMembers(instance)
 			return instance
 		}).AsEagerSingleton()
 	}
