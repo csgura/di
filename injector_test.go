@@ -1234,7 +1234,7 @@ func TestBindToInstanceInjection(t *testing.T) {
 	})
 
 	type proxy struct {
-		Cli client `di:"inject`
+		Cli client `di:"inject"`
 	}
 
 	implements.AddBind(func(binder *di.Binder) {
@@ -1249,4 +1249,33 @@ func TestBindToInstanceInjection(t *testing.T) {
 	if p.Cli == nil {
 		t.Errorf("p.Cli is nil")
 	}
+}
+
+func TestBindToInstanceInjectionError(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+
+	type proxy struct {
+		Cli client `di:"inject"`
+	}
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindSingleton((*proxy)(nil), &proxy{})
+	})
+
+	injector := implements.NewInjector(nil)
+
+	var p *proxy
+	injector.InjectValue(&p)
+
+	if p.Cli == nil {
+		t.Errorf("p.Cli is nil")
+	}
+
 }
