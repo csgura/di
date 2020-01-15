@@ -117,7 +117,7 @@ func (*EagerModule) Configure(binder *di.Binder) {
 		//h := inj.GetInstance((*Hello)(nil)).(Hello)
 		//h.Hello()
 		ret := &EagerunImpl{}
-		go func() { ret.Run() }()
+		ret.Run()
 		return ret
 	}).AsEagerSingleton()
 }
@@ -269,13 +269,14 @@ type Closeable1 struct {
 }
 
 type Closeable2 struct {
+	world string
 }
 
 type NotCloseable struct {
 }
 
-func (*Closeable1) Close() error {
-	fmt.Println("Close Closeable1")
+func (r *Closeable1) Close() error {
+	fmt.Println("Close Closeable1 : ", r.world)
 	return nil
 }
 
@@ -284,12 +285,17 @@ func (*Closeable2) Close() error {
 	return nil
 }
 
+type Closeable3 Closeable1
+type Closeable4 interface{}
+
 func (*CloserModule) Configure(binder *di.Binder) {
-	c1 := &Closeable1{}
-	type Closeable3 Closeable1
+	c1 := &Closeable1{"c1"}
 	binder.BindSingleton((*Closeable1)(nil), c1)
 	binder.BindSingleton((*Closeable3)(nil), c1)
 	binder.BindSingleton((*Closeable2)(nil), &Closeable2{})
+
+	binder.IfNotBinded((*Closeable4)(nil)).ToInstance(&Closeable2{"c4"})
+
 	binder.BindSingleton((*NotCloseable)(nil), &NotCloseable{})
 }
 
@@ -313,7 +319,7 @@ func TestGetInstancesOf(t *testing.T) {
 		c.Close()
 	}
 
-	if count != 2 {
+	if count != 3 {
 		t.Errorf("GetInstanceOf( io.Close ) failed. close count = %d", count)
 	}
 	list = injector.GetInstancesOf((*Closeable1)(nil))
@@ -1278,4 +1284,30 @@ func TestBindToInstanceInjectionError(t *testing.T) {
 		t.Errorf("p.Cli is nil")
 	}
 
+}
+
+func TestInjectorRace(t *testing.T) {
+	implements := di.NewImplements()
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindConstructor((*client)(nil), func() client {
+			return &clientImpl{}
+		})
+
+		binder.AddDecoratorOf((*client)(nil), func(injector di.Injector) {
+			injector.GetInstance((*client)(nil))
+		})
+	})
+
+	injector := implements.NewInjector(nil)
+
+	go func() {
+		injector.GetInstance((*client)(nil))
+	}()
+
+	go func() {
+		injector.GetInstance((*client)(nil))
+	}()
+
+	time.Sleep(10 * time.Millisecond)
 }

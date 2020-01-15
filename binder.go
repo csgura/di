@@ -2,6 +2,7 @@ package di
 
 import (
 	"reflect"
+	"sync"
 )
 
 // Binding has provider function and created singlton instances
@@ -17,6 +18,7 @@ type Binding struct {
 	isDecoratorOf bool
 	isInterceptor bool
 	interceptor   interceptorProvider
+	singletonOnce sync.Once
 }
 
 // ToInstance binds type to singleton instance
@@ -220,6 +222,14 @@ func (b *Binder) merge(other *Binder, panicOnDup bool) {
 		}
 	}
 
+}
+
+func (b *Binder) mergeFallbacks() {
+	for k, v := range b.providersFallback {
+		if b.providers[k] == nil {
+			b.providers[k] = v
+		}
+	}
 }
 
 // BindProvider binds intf type to provider function

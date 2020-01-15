@@ -250,10 +250,10 @@ func (r *injectorContext) getBinding(t reflect.Type) *Binding {
 		return p
 	}
 
-	p = r.injector.binder.providersFallback[t]
-	if p != nil {
-		return p
-	}
+	// p = r.injector.binder.providersFallback[t]
+	// if p != nil {
+	// 	return p
+	// }
 	return nil
 }
 
@@ -289,20 +289,22 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 	ret := func() interface{} {
 		if p != nil {
 			if p.isSingleton {
-				ret := p.instance
-				if ret == nil {
+				created := false
+				p.singletonOnce.Do(func() {
 					if p.provider != nil {
-						ret = r.createInstance(p.tpe, p)
-						if ret != nil {
-							ret = r.wrapInterceptor(p.tpe, ret)
+						ins := r.createInstance(p.tpe, p)
+						if ins != nil {
+							ins = r.wrapInterceptor(p.tpe, ins)
 						}
 
-						p.instance = ret
-						if p.instance != nil {
-							r.callDecorators(p.tpe)
-						}
+						p.instance = ins
+						created = true
 					}
+				})
+				if created && p.instance != nil {
+					r.callDecorators(p.tpe)
 				}
+				ret := p.instance
 				return ret
 			}
 			ret := r.createInstance(p.tpe, p)

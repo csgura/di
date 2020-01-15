@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -105,6 +106,8 @@ func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback Tr
 		binder.merge(overBinder, false)
 	}
 
+	binder.mergeFallbacks()
+
 	injector := &injectorImpl{binder, make(map[string]string), traceCallback}
 
 	var injectorIntf *Injector
@@ -145,9 +148,12 @@ func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.D
 	var lastCreated *TraceInfo
 	var longest *TraceInfo
 	requested := map[reflect.Type]*TraceInfo{}
+	lock := sync.Mutex{}
 
 	go func() {
 		ret := r.NewInjectorWithTrace(moduleNames, func(info *TraceInfo) {
+			lock.Lock()
+			defer lock.Unlock()
 			if info.TraceType == InstanceWillBeCreated {
 				lastRequested = info
 				requested[info.RequestedType] = info
@@ -169,6 +175,8 @@ func (r *Implements) NewInjectorWithTimeout(moduleNames []string, timeout time.D
 	case <-timer.C:
 		builder := strings.Builder{}
 		builder.WriteString("Not completed : \n\t\t")
+		lock.Lock()
+		defer lock.Unlock()
 		for _, v := range requested {
 			builder.WriteString(v.String())
 			builder.WriteString("\n\t\t")
