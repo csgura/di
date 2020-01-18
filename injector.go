@@ -168,13 +168,7 @@ func (r *injectorContext) createJitBinding(binder *Binder, bindType reflect.Type
 	}
 }
 
-func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{} {
-	var referer reflect.Type
-	if len(r.stack) > 0 {
-		referer = r.stack[len(r.stack)-1]
-	}
-
-	r.stack = append(r.stack, t)
+func (r *injectorContext) paninOnLoop(t reflect.Type) {
 	if r.loopCheck[t] == true {
 		loopStr := ""
 		for _, k := range r.stack {
@@ -187,6 +181,17 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 		}
 		panic("dependency cycle : \n" + loopStr + "\n")
 	}
+}
+
+func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{} {
+	var referer reflect.Type
+	if len(r.stack) > 0 {
+		referer = r.stack[len(r.stack)-1]
+	}
+
+	r.stack = append(r.stack, t)
+
+	r.paninOnLoop(t)
 	r.loopCheck[t] = true
 
 	defer func() {
@@ -290,6 +295,7 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 		if p != nil {
 			if p.isSingleton {
 				created := false
+				r.paninOnLoop(p.tpe)
 				p.singletonOnce.Do(func() {
 					if p.provider != nil {
 						ins := r.createInstance(p.tpe, p)

@@ -139,6 +139,39 @@ func TestInjector(t *testing.T) {
 	fmt.Printf("config = %s\n", db.get())
 }
 
+type TypeA struct {
+	B *TypeB `di:"inject"`
+}
+
+type TypeB struct {
+	C *TypeC `di:"inject"`
+}
+
+type TypeC struct {
+	A *TypeA `di:"inject"`
+}
+
+func TestCycle(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindSingleton((*TypeA)(nil), &TypeA{})
+		binder.BindSingleton((*TypeB)(nil), &TypeB{})
+		binder.BindSingleton((*TypeC)(nil), &TypeC{})
+
+	})
+
+	injector := di.NewInjector(implements, nil)
+	injector.GetInstance((*TypeA)(nil))
+}
+
 func TestDuplicatedBind(t *testing.T) {
 	defer func() {
 		r := recover()
