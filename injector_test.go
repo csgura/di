@@ -1344,3 +1344,25 @@ func TestInjectorRace(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 }
+
+func TestNilBinding(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindConstructor((client)(nil), func() client {
+			return &clientImpl{}
+		}).AsEagerSingleton()
+	})
+
+	injector := implements.NewInjector(nil)
+	injector.GetInstance((client)(nil))
+
+	t.Error("not panic")
+}

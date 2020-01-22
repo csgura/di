@@ -134,6 +134,10 @@ func (b *Binder) addInterceptor(binding *Binding) {
 
 // Bind returns Binding that it is not binded anything
 func (b *Binder) Bind(ptrToType interface{}) *Binding {
+	if ptrToType == nil {
+		panic("Bind : invalid type ( nil ). ")
+	}
+
 	t := reflect.TypeOf(ptrToType)
 	return &Binding{
 		binder:      b,
