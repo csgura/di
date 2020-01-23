@@ -462,12 +462,19 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	}
 
 	if len(resultValue) == 1 {
+		if resultValue[0].IsNil() {
+			return nil
+		}
 		return resultValue[0].Interface()
 	}
 
 	ret := make([]interface{}, len(resultValue))
 	for i, v := range resultValue {
+		if v.IsNil() {
+			ret[i] = nil
+		}
 		ret[i] = v.Interface()
+
 	}
 	return ret
 }

@@ -1366,3 +1366,21 @@ func TestNilBinding(t *testing.T) {
 
 	t.Error("not panic")
 }
+
+func TestInjectorNilConstructor(t *testing.T) {
+	implements := di.NewImplements()
+
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindConstructor((*client)(nil), func() *clientImpl {
+			return nil
+		})
+
+	})
+
+	injector := implements.NewInjector(nil)
+
+	ret := injector.GetInstance((*client)(nil))
+	if ret != nil {
+		t.Error("ret is not nil")
+	}
+}
