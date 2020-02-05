@@ -1384,3 +1384,49 @@ func TestInjectorNilConstructor(t *testing.T) {
 		t.Error("ret is not nil")
 	}
 }
+
+type server struct {
+}
+
+type mapper struct {
+}
+
+type starter interface{}
+
+func NotTestDecoratorPanic(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		binder.BindConstructor((*server)(nil), func() interface{} {
+			fmt.Println("server created")
+			return &server{}
+		})
+
+		binder.BindConstructor((*mapper)(nil), func(server *server) interface{} {
+			fmt.Println("mapper created")
+
+			return &mapper{}
+		})
+
+		binder.AddDecoratorOf((*server)(nil), func(ij di.Injector) {
+			fmt.Println("server decorated")
+
+			ij.GetInstance((*mapper)(nil))
+		})
+
+		binder.BindConstructor((*starter)(nil), func(server *server) interface{} {
+			fmt.Println("started")
+
+			return "started"
+		})
+
+		binder.BindConstructor((*client)(nil), func(mapper *mapper) interface{} {
+			fmt.Println("client created")
+
+			return &clientImpl{}
+		}).AsEagerSingleton()
+
+	})
+	implements.NewInjectorWithTrace(nil, func(info *di.TraceInfo) {
+		fmt.Println(info)
+	})
+}

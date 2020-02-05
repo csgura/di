@@ -59,15 +59,15 @@ func (r *TraceInfo) String() string {
 	}
 	if r.TraceType == InstanceCreated {
 		if r.Referer != nil {
-			return fmt.Sprintf("Create Instance of %s , Referer : %s , ElapsedTime : %s", r.RequestedType, r.Referer, r.ElapsedTime)
+			return fmt.Sprintf("Complete Instance : %s -> %s , ElapsedTime : %s", r.Referer, r.RequestedType, r.ElapsedTime)
 		}
-		return fmt.Sprintf("Create Instance of %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
+		return fmt.Sprintf("Complete Instance : %s , ElapsedTime : %s", r.RequestedType, r.ElapsedTime)
 	}
 
 	if r.Referer != nil {
-		return fmt.Sprintf("%s of %s , Referer : %s", r.TraceType, r.RequestedType, r.Referer)
+		return fmt.Sprintf("%s : %s -> %s", r.TraceType, r.Referer, r.RequestedType)
 	}
-	return fmt.Sprintf("%s of %s", r.TraceType, r.RequestedType)
+	return fmt.Sprintf("%s : %s", r.TraceType, r.RequestedType)
 }
 
 // TraceCallback is trace call back function
@@ -242,6 +242,7 @@ func (r *injectorContext) wrapInterceptor(t reflect.Type, instance interface{}) 
 
 func (r *injectorContext) callDecorators(t reflect.Type) {
 	if list := r.injector.binder.decorators[t]; list != nil {
+
 		for _, decorator := range list {
 			//fmt.Printf("call decorator of %s\n", t)
 			decorator.provider(r)
