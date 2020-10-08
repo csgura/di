@@ -421,6 +421,21 @@ func hasInjectTag(tag reflect.StructTag) injectTag {
 	return injectTag{false, true}
 }
 
+func isNil(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Chan,
+		reflect.Func,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.UnsafePointer,
+		reflect.Interface,
+		reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
+}
+
 func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	ftype := reflect.TypeOf(function)
 	if ftype == nil {
@@ -463,7 +478,7 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	}
 
 	if len(resultValue) == 1 {
-		if resultValue[0].IsNil() {
+		if isNil(resultValue[0]) {
 			return nil
 		}
 		return resultValue[0].Interface()
@@ -471,7 +486,7 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 
 	ret := make([]interface{}, len(resultValue))
 	for i, v := range resultValue {
-		if v.IsNil() {
+		if isNil(v) {
 			ret[i] = nil
 		}
 		ret[i] = v.Interface()

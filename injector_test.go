@@ -855,6 +855,10 @@ func TestInjectCall(t *testing.T) {
 	if ret2[0].(ValueInterface).Value() != "ValueRet" {
 		t.Errorf("ret.Value() != ValueRet")
 	}
+
+	injector.InjectAndCall(func() int {
+		return 10
+	})
 }
 
 type constructorResult struct {
