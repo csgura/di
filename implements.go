@@ -91,6 +91,7 @@ func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback Tr
 	if hasOverride {
 
 		overBinder := newBinder()
+		overBinder.ignoreDuplicate = true
 
 		for _, name := range moduleNames {
 			module := r.implements[name]

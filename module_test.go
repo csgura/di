@@ -166,3 +166,27 @@ func TestImplementsNotEmptyOverride(t *testing.T) {
 		t.Errorf("Value3 not binded")
 	}
 }
+
+func TestDupDefaults(t *testing.T) {
+	impls := di.NewImplements()
+
+	impls.AddImplement("a.Defaults", di.OverrideModule(di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"a.Value1All"})
+		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"a.Value2All"})
+	})))
+
+	impls.AddImplement("b.Defaults", di.OverrideModule(di.BindFunc(func(binder *di.Binder) {
+		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"b.Value1All"})
+		binder.Bind((*Value3)(nil)).ToInstance(&ValueImpl{"b.Value3All"})
+	})))
+
+	injector := impls.NewInjector([]string{"a.Defaults", "b.Defaults"})
+	if injector.GetInstance((*Value1)(nil)).(Value1).Value() != "a.Value1All" {
+		t.Errorf("Value1 not binded")
+	}
+
+	if injector.GetInstance((*Value3)(nil)).(Value1).Value() != "b.Value3All" {
+		t.Errorf("Value2 not binded")
+	}
+
+}
