@@ -90,21 +90,21 @@ func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback Tr
 	}
 	if hasOverride {
 
-		overBinder := newBinder()
-		overBinder.ignoreDuplicate = true
-
 		for _, name := range moduleNames {
 			module := r.implements[name]
 			if module != nil {
+				overBinder := newBinder()
+
 				if overriden, ok := module.(*orverriden); ok {
 					for _, m := range overriden.modules {
 						m.Configure(overBinder)
 					}
 				}
+
+				binder.merge(overBinder, false)
 			}
 		}
 
-		binder.merge(overBinder, false)
 	}
 
 	binder.mergeFallbacks()
