@@ -23,8 +23,9 @@ type Implements struct {
 }
 
 // AddImplement adds named abstract module to Implements
-func (r *Implements) AddImplement(name string, impl AbstractModule) {
+func (r *Implements) AddImplement(name string, impl AbstractModule) *Implements {
 	r.implements[name] = impl
+	return r
 }
 
 // HasImplement returns whether named module is registered
@@ -39,17 +40,19 @@ func (r *Implements) GetImplement(name string) AbstractModule {
 }
 
 // AddImplements adds all named AbstraceModule of impl to this
-func (r *Implements) AddImplements(impl *Implements) {
+func (r *Implements) AddImplements(impl *Implements) *Implements {
 	for k, v := range impl.implements {
 		if _, exists := r.implements[k]; exists == false {
 			r.implements[k] = v
 		}
 	}
+	return r
 }
 
 // AddBind adds no named abstrace module
-func (r *Implements) AddBind(bindF func(binder *Binder)) {
+func (r *Implements) AddBind(bindF func(binder *Binder)) *Implements {
 	r.anonymousModule = append(r.anonymousModule, BindFunc(bindF))
+	return r
 }
 
 // Clone returns clone of this
