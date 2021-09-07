@@ -1,3 +1,3 @@
 module github.com/csgura/di
 
-go 1.11
+go 1.18

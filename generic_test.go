@@ -1,6 +1,6 @@
-// +build !go1.18
+// +build go1.18
 
-//go:build !go1.18
+//go:build go1.18
 
 package di_test
 
@@ -54,7 +54,7 @@ func (h *HelloGura) Hello() {
 }
 
 func (*MyModule) Configure(binder *di.Binder) {
-	binder.BindProvider((*Hello)(nil), func(inj di.Injector) interface{} {
+	di.BindProvider[Hello](binder, func(inj di.Injector) Hello {
 		configfile := inj.GetProperty("config.file")
 		fmt.Printf("configfile = %s\n", configfile)
 		db := inj.GetInstance((*ConfigDB)(nil)).(ConfigDB)
@@ -63,7 +63,7 @@ func (*MyModule) Configure(binder *di.Binder) {
 }
 
 func (*MyModuleDup) Configure(binder *di.Binder) {
-	binder.BindSingleton((*Hello)(nil), &HelloGura{})
+	di.BindSingleton[Hello](binder, &HelloGura{})
 }
 
 // func (*MyModule2) Configure(binder *di.Binder) {
@@ -71,11 +71,12 @@ func (*MyModuleDup) Configure(binder *di.Binder) {
 // }
 
 func (*MyModule2) Configure(binder *di.Binder) {
-	binder.BindProvider((*ConfigDB)(nil), func(inj di.Injector) interface{} {
+	di.BindProvider[ConfigDB](binder, func(inj di.Injector) ConfigDB {
 		//h := inj.GetInstance((*Hello)(nil)).(Hello)
 		//h.Hello()
 		return &MemoryConfigDB{}
 	})
+
 }
 
 type MultipleInstance struct {
@@ -91,7 +92,7 @@ type MyModuleNonSingleton struct {
 }
 
 func (r *MyModuleNonSingleton) Configure(binder *di.Binder) {
-	binder.BindProvider((*ConfigDB)(nil), func(inj di.Injector) interface{} {
+	di.BindProvider[ConfigDB](binder, func(inj di.Injector) ConfigDB {
 		//h := inj.GetInstance((*Hello)(nil)).(Hello)
 		//h.Hello()
 		r.sequence++
@@ -115,7 +116,7 @@ func (this *EagerunImpl) Run() {
 	eagerResult = "done"
 }
 func (*EagerModule) Configure(binder *di.Binder) {
-	binder.BindProvider((*EagerRun)(nil), func(inj di.Injector) interface{} {
+	di.BindProvider[EagerRun](binder, func(inj di.Injector) EagerRun {
 
 		fmt.Printf("EagerModule configured\n")
 		//h := inj.GetInstance((*Hello)(nil)).(Hello)
@@ -137,6 +138,9 @@ func TestInjector(t *testing.T) {
 	injector.SetProperty("config.file", "application.conf")
 
 	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins.Hello()
+
+	ins = di.GetInstance[Hello](injector)
 	ins.Hello()
 
 	db := injector.GetInstance((*ConfigDB)(nil)).(ConfigDB)
@@ -166,14 +170,15 @@ func TestCycle(t *testing.T) {
 	implements := di.NewImplements()
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindSingleton((*TypeA)(nil), &TypeA{})
-		binder.BindSingleton((*TypeB)(nil), &TypeB{})
-		binder.BindSingleton((*TypeC)(nil), &TypeC{})
-
+		di.BindSingleton[*TypeA](binder, &TypeA{})
+		di.BindSingleton[*TypeB](binder, &TypeB{})
+		di.BindSingleton[*TypeC](binder, &TypeC{})
 	})
 
 	injector := di.NewInjector(implements, nil)
-	injector.GetInstance((*TypeA)(nil))
+	di.GetInstance[*TypeA](injector)
+
+	//injector.GetInstance((*TypeA)(nil))
 }
 
 func TestDuplicatedBind(t *testing.T) {
@@ -193,7 +198,7 @@ func TestDuplicatedBind(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins := di.GetInstance[Hello](injector)
 	ins.Hello()
 
 	fmt.Printf("this code should not execute\n")
@@ -216,7 +221,7 @@ func TestNotBind(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins := di.GetInstance[Hello](injector)
 	ins.Hello()
 
 	fmt.Printf("this code should not execute\n")
@@ -239,7 +244,7 @@ func TestNotImplemented(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins := di.GetInstance[Hello](injector)
 	ins.Hello()
 
 	fmt.Printf("this code should not execute\n")
@@ -249,7 +254,7 @@ func TestAnonymous(t *testing.T) {
 
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindSingleton((*Hello)(nil), &HelloGura{})
+		di.BindSingleton[Hello](binder, &HelloGura{})
 	})
 	// implements.AddImplement("MyModule2", &MyModule2{})
 	// implements.AddImplement("MyModuleDup", &MyModuleDup{})
@@ -258,7 +263,7 @@ func TestAnonymous(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	ins := injector.GetInstance((*Hello)(nil)).(Hello)
+	ins := di.GetInstance[Hello](injector)
 	ins.Hello()
 }
 
@@ -270,10 +275,10 @@ func TestNonSingleton(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	db := injector.GetInstance((*ConfigDB)(nil)).(ConfigDB)
+	db := di.GetInstance[ConfigDB](injector)
 	fmt.Printf("config = %p, %s\n", db, db.get())
 
-	db2 := injector.GetInstance((*ConfigDB)(nil)).(ConfigDB)
+	db2 := di.GetInstance[ConfigDB](injector)
 	fmt.Printf("config = %p, %s\n", db2, db2.get())
 
 	if db.get() == db2.get() {
@@ -323,17 +328,17 @@ func (*Closeable2) Close() error {
 }
 
 type Closeable3 Closeable1
-type Closeable4 interface{}
+type Closeable4 io.Closer
 
 func (*CloserModule) Configure(binder *di.Binder) {
 	c1 := &Closeable1{"c1"}
-	binder.BindSingleton((*Closeable1)(nil), c1)
-	binder.BindSingleton((*Closeable3)(nil), c1)
-	binder.BindSingleton((*Closeable2)(nil), &Closeable2{})
+	di.BindSingleton[*Closeable1](binder, c1)
+	di.BindSingleton[*Closeable2](binder, &Closeable2{})
+	di.BindSingleton[*Closeable3](binder, (*Closeable3)(c1))
 
-	binder.IfNotBinded((*Closeable4)(nil)).ToInstance(&Closeable2{"c4"})
+	di.IfNotBinded[Closeable4](binder).ToInstance(&Closeable2{"c4"})
+	di.BindSingleton[*NotCloseable](binder, &NotCloseable{})
 
-	binder.BindSingleton((*NotCloseable)(nil), &NotCloseable{})
 }
 
 func TestGetInstancesOf(t *testing.T) {
@@ -347,23 +352,21 @@ func TestGetInstancesOf(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	list := injector.GetInstancesOf((*io.Closer)(nil))
+	list := di.GetInstancesOf[io.Closer](injector)
 
 	count := 0
-	for _, ins := range list {
+	for _, c := range list {
 		count++
-		c := ins.(io.Closer)
 		c.Close()
 	}
 
 	if count != 3 {
 		t.Errorf("GetInstanceOf( io.Close ) failed. close count = %d", count)
 	}
-	list = injector.GetInstancesOf((*Closeable1)(nil))
+	list2 := di.GetInstancesOf[*Closeable1](injector)
 	count = 0
-	for _, ins := range list {
+	for _, c := range list2 {
 		count++
-		c := ins.(io.Closer)
 		c.Close()
 	}
 
@@ -379,7 +382,7 @@ type EncoderModule struct {
 }
 
 func (*EncoderModule) Configure(binder *di.Binder) {
-	binder.BindProvider((*Encoder)(nil), func(injector di.Injector) interface{} {
+	di.BindProvider[Encoder](binder, func(injector di.Injector) Encoder {
 		ret := func(data string) string {
 			return "hello : " + data
 		}
@@ -401,12 +404,11 @@ func TestFunctionBind(t *testing.T) {
 
 	injector := di.NewInjector(implements, loadingModuleList)
 
-	list := injector.GetInstancesOf((*Encoder)(nil))
+	list := di.GetInstancesOf[Encoder](injector)
 
 	count := 0
-	for _, ins := range list {
+	for _, c := range list {
 		count++
-		c := ins.(Encoder)
 		fmt.Printf("after encode = %s\n", c("world"))
 	}
 
@@ -425,7 +427,7 @@ type FirstModule struct{}
 type SecondModule struct{}
 
 func (r *FirstModule) Configure(binder *di.Binder) {
-	binder.BindProvider((*First)(nil), func(injector di.Injector) interface{} {
+	di.BindProvider[*First](binder, func(injector di.Injector) *First {
 		createdOrder = append(createdOrder, "FirstModule")
 		f := First(1)
 		return &f
@@ -433,7 +435,7 @@ func (r *FirstModule) Configure(binder *di.Binder) {
 }
 
 func (r *SecondModule) Configure(binder *di.Binder) {
-	binder.BindProvider((*Second)(nil), func(injector di.Injector) interface{} {
+	di.BindProvider[*Second](binder, func(injector di.Injector) *Second {
 		createdOrder = append(createdOrder, "SecondModule")
 		f := Second(2)
 		return &f
@@ -465,7 +467,7 @@ func TestBindOrder(t *testing.T) {
 type FirstModuleFallback struct{}
 
 func (r *FirstModuleFallback) Configure(binder *di.Binder) {
-	binder.IfNotBinded((*First)(nil)).ToProvider(func(injector di.Injector) interface{} {
+	di.IfNotBinded[*First](binder).ToProvider(func(injector di.Injector) *First {
 		createdOrder = append(createdOrder, "FirstModuleFallback")
 		f := First(1)
 		return &f
@@ -570,16 +572,16 @@ type Target struct {
 func TestInjectMembers(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
-		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
-		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
-		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToInstance(&ValueImpl{"Value"})
+		di.Bind[Value1](binder).ToInstance(&ValueImpl{"Value1"})
+		di.Bind[Value2](binder).ToInstance(&ValueImpl{"Value2"})
+		di.Bind[GetValueFunc](binder).ToProvider(func(injector di.Injector) GetValueFunc {
 			return GetValueFunc(func() string {
 				return "GetValueFunc"
 			})
 		})
 
-		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*SubStructPointer](binder).ToProvider(func(injector di.Injector) *SubStructPointer {
 			ret := SubStructPointer{}
 			injector.InjectMembers(&ret)
 			return &ret
@@ -703,24 +705,24 @@ type TargetExplicit struct {
 func TestInjectMembersExplicit(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
-		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
-		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
-		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToInstance(&ValueImpl{"Value"})
+		di.Bind[Value1](binder).ToInstance(&ValueImpl{"Value1"})
+		di.Bind[Value2](binder).ToInstance(&ValueImpl{"Value2"})
+		di.Bind[GetValueFunc](binder).ToProvider(func(injector di.Injector) GetValueFunc {
 			return GetValueFunc(func() string {
 				return "GetValueFunc"
 			})
 		})
 
-		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*SubStructPointer](binder).ToProvider(func(injector di.Injector) *SubStructPointer {
 			ret := SubStructPointer{}
 			injector.InjectMembers(&ret)
 			return &ret
 		})
 
 		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
-		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
-		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+		di.Bind[PrometheusPort](binder).ToInstance(8080)
+		di.Bind[PrometheusAddress](binder).ToInstance("google.com")
 
 	})
 
@@ -789,39 +791,49 @@ func TestPrimitiveBinding(t *testing.T) {
 	implements.AddBind(func(binder *di.Binder) {
 
 		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
-		binder.Bind((*PrometheusPort)(nil)).ToInstance(PrometheusPort(8080))
-		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+		di.Bind[PrometheusPort](binder).ToInstance(PrometheusPort(8080))
+		di.Bind[PrometheusAddress](binder).ToInstance("google.com")
 
 	})
 
 	injector := di.NewInjector(implements, []string{})
-	port := injector.GetInstance((*PrometheusPort)(nil)).(PrometheusPort)
-	addr := injector.GetInstance((*PrometheusAddress)(nil)).(string)
+	port := di.GetInstance[PrometheusPort](injector)
+	addr := di.GetInstance[PrometheusAddress](injector)
 
 	fmt.Printf("addr = %s , port= %d\n", addr, port)
+
+	if port != 8080 {
+		t.Errorf("target.Port != 8080")
+		return
+	}
+
+	if addr != "google.com" {
+		t.Errorf("target.Address != google.com")
+		return
+	}
 }
 
 func TestInjectCall(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
-		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
-		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
-		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToInstance(&ValueImpl{"Value"})
+		di.Bind[Value1](binder).ToInstance(&ValueImpl{"Value1"})
+		di.Bind[Value2](binder).ToInstance(&ValueImpl{"Value2"})
+		di.Bind[GetValueFunc](binder).ToProvider(func(injector di.Injector) GetValueFunc {
 			return GetValueFunc(func() string {
 				return "GetValueFunc"
 			})
 		})
 
-		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*SubStructPointer](binder).ToProvider(func(injector di.Injector) *SubStructPointer {
 			ret := SubStructPointer{}
 			injector.InjectMembers(&ret)
 			return &ret
 		})
 
-		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
-		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
-		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+		//di.Bind[*HttpPort](binder).ToInstance(HttpPort(8080))
+		di.Bind[PrometheusPort](binder).ToInstance(8080)
+		di.Bind[PrometheusAddress](binder).ToInstance("google.com")
 
 	})
 
@@ -884,30 +896,30 @@ func TestBindConstructor(t *testing.T) {
 
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
-		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
-		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
-		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToInstance(&ValueImpl{"Value"})
+		di.Bind[Value1](binder).ToInstance(&ValueImpl{"Value1"})
+		di.Bind[Value2](binder).ToInstance(&ValueImpl{"Value2"})
+		di.Bind[GetValueFunc](binder).ToProvider(func(injector di.Injector) GetValueFunc {
 			return GetValueFunc(func() string {
 				return "GetValueFunc"
 			})
 		})
 
-		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*SubStructPointer](binder).ToProvider(func(injector di.Injector) *SubStructPointer {
 			ret := SubStructPointer{}
 			injector.InjectMembers(&ret)
 			return &ret
 		})
 
-		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
-		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
-		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+		//di.Bind[*HttpPort](binder).ToInstance(HttpPort(8080))
+		di.Bind[PrometheusPort](binder).ToInstance(8080)
+		di.Bind[PrometheusAddress](binder).ToInstance("google.com")
 
-		binder.Bind((*constructorResult)(nil)).ToConstructor(constructor)
+		di.Bind[*constructorResult](binder).ToConstructor(constructor)
 
 	})
 	injector := di.NewInjector(implements, []string{})
-	res := injector.GetInstance((*constructorResult)(nil)).(*constructorResult)
+	res := di.GetInstance[*constructorResult](injector)
 	if res == nil {
 		t.Errorf("res == nil")
 	}
@@ -956,9 +968,9 @@ func (m MapRegistry) Get(name string) interface{} {
 func TestDecorator(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*Registry)(nil)).ToInstance(MapRegistry{})
+		di.Bind[Registry](binder).ToInstance(MapRegistry{})
 
-		binder.AddDecoratorOf((*Registry)(nil), func(injector di.Injector) {
+		di.AddDecoratorOf[Registry](binder, func(injector di.Injector) {
 			regi := injector.GetInstance((*Registry)(nil)).(Registry)
 			regi.Register("hello", "world")
 		})
@@ -987,26 +999,26 @@ type ClassS struct {
 func TestDecoratorCycle(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ClassS)(nil)).ToInstance(&ClassS{t: "hello"})
+		di.Bind[*ClassS](binder).ToInstance(&ClassS{t: "hello"})
 
-		binder.AddDecoratorOf((*ClassS)(nil), func(injector di.Injector) {
-			s := injector.GetInstance((*ClassS)(nil)).(*ClassS)
-			s.a = injector.GetInstance((*ClassA)(nil)).(*ClassA)
+		di.AddDecoratorOf[*ClassS](binder, func(injector di.Injector) {
+			s := di.GetInstance[*ClassS](injector)
+			s.a = di.GetInstance[*ClassA](injector)
 			s.t = s.a.t
 		})
 
-		binder.BindConstructor((*ClassA)(nil), func(s *ClassS) interface{} {
+		di.BindConstructor[*ClassA](binder, func(s *ClassS) interface{} {
 			return &ClassA{s, "a"}
 		})
 
-		binder.BindConstructor((*ClassB)(nil), func(s *ClassS) interface{} {
+		di.BindConstructor[*ClassB](binder, func(s *ClassS) interface{} {
 			return &ClassB{s, "b"}
 		})
 
 	})
 
 	injector := di.NewInjector(implements, []string{})
-	s := injector.GetInstance((*ClassS)(nil)).(*ClassS)
+	s := di.GetInstance[*ClassS](injector)
 	if s.t != "a" {
 		t.Errorf("decorator not called")
 	}
@@ -1015,26 +1027,26 @@ func TestDecoratorCycle(t *testing.T) {
 func TestInjectValue(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
-		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
-		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
-		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToInstance(&ValueImpl{"Value"})
+		di.Bind[Value1](binder).ToInstance(&ValueImpl{"Value1"})
+		di.Bind[Value2](binder).ToInstance(&ValueImpl{"Value2"})
+		di.Bind[GetValueFunc](binder).ToProvider(func(injector di.Injector) GetValueFunc {
 			return GetValueFunc(func() string {
 				return "GetValueFunc"
 			})
 		})
 
-		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*SubStructPointer](binder).ToProvider(func(injector di.Injector) *SubStructPointer {
 			ret := SubStructPointer{}
 			injector.InjectMembers(&ret)
 			return &ret
 		})
 
-		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
-		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
-		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+		//di.Bind[HttpPort](binder).ToInstance(HttpPort(8080))
+		di.Bind[PrometheusPort](binder).ToInstance(8080)
+		di.Bind[PrometheusAddress](binder).ToInstance("google.com")
 
-		binder.Bind((*constructorResult)(nil)).ToConstructor(constructor)
+		di.Bind[*constructorResult](binder).ToConstructor(constructor)
 
 	})
 	injector := di.NewInjector(implements, []string{})
@@ -1107,11 +1119,11 @@ func TestInjectValue(t *testing.T) {
 func TestInjectDecorator(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.AddDecoratorOf((*di.Injector)(nil), func(injector di.Injector) {
+		di.AddDecoratorOf[di.Injector](binder, func(injector di.Injector) {
 			injector.SetProperty("hello", "world")
 		})
 
-		binder.Bind((*ValueInterface)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToProvider(func(injector di.Injector) ValueInterface {
 			return &ValueImpl{injector.GetProperty("hello")}
 		}).AsEagerSingleton()
 	})
@@ -1135,7 +1147,7 @@ func TestNilPointerBinding(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
 
-		binder.Bind((*ValueImpl)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*ValueImpl](binder).ToProvider(func(injector di.Injector) *ValueImpl {
 
 			var ret *ValueImpl
 
@@ -1170,26 +1182,26 @@ func TestInjectorTimeout(t *testing.T) {
 
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.Bind((*ValueInterface)(nil)).ToInstance(&ValueImpl{"Value"})
-		binder.Bind((*Value1)(nil)).ToInstance(&ValueImpl{"Value1"})
-		binder.Bind((*Value2)(nil)).ToInstance(&ValueImpl{"Value2"})
-		binder.Bind((*GetValueFunc)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[ValueInterface](binder).ToInstance(&ValueImpl{"Value"})
+		di.Bind[Value1](binder).ToInstance(&ValueImpl{"Value1"})
+		di.Bind[Value2](binder).ToInstance(&ValueImpl{"Value2"})
+		di.Bind[GetValueFunc](binder).ToProvider(func(injector di.Injector) GetValueFunc {
 			return GetValueFunc(func() string {
 				return "GetValueFunc"
 			})
 		})
 
-		binder.Bind((*SubStructPointer)(nil)).ToProvider(func(injector di.Injector) interface{} {
+		di.Bind[*SubStructPointer](binder).ToProvider(func(injector di.Injector) *SubStructPointer {
 			ret := SubStructPointer{}
 			injector.InjectMembers(&ret)
 			return &ret
 		})
 
-		//binder.Bind((*HttpPort)(nil)).ToInstance(HttpPort(8080))
-		binder.Bind((*PrometheusPort)(nil)).ToInstance(8080)
-		binder.Bind((*PrometheusAddress)(nil)).ToInstance("google.com")
+		//di.Bind[HttpPort](binder).ToInstance(HttpPort(8080))
+		di.Bind[PrometheusPort](binder).ToInstance(8080)
+		di.Bind[PrometheusAddress](binder).ToInstance("google.com")
 
-		binder.Bind((*constructorResult)(nil)).ToConstructor(constructorTimeout).AsEagerSingleton()
+		di.Bind[*constructorResult](binder).ToConstructor(constructorTimeout).AsEagerSingleton()
 
 	})
 	implements.NewInjectorWithTimeout(nil, 20*time.Millisecond)
@@ -1233,22 +1245,22 @@ func TestInterceptor(t *testing.T) {
 	implements := di.NewImplements()
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindConstructor((*client)(nil), func() client {
+		di.BindConstructor[client](binder, func() client {
 			return &clientImpl{}
 		})
 	})
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindInterceptor((*client)(nil), func(injector di.Injector, value interface{}) interface{} {
-			return &clientLogger{value.(client)}
+		di.BindInterceptor[client](binder, func(injector di.Injector, value client) client {
+			return &clientLogger{value}
 		})
 	})
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindSingleton((*Counter)(nil), &Counter{})
-		binder.BindInterceptor((*client)(nil), func(injector di.Injector, value interface{}) interface{} {
-			counter := injector.GetInstance((*Counter)(nil)).(*Counter)
-			return &clientCounter{counter, value.(client)}
+		di.BindSingleton[*Counter](binder, &Counter{})
+		di.BindInterceptor[client](binder, func(injector di.Injector, value client) client {
+			counter := di.GetInstance[*Counter](injector)
+			return &clientCounter{counter, value}
 		})
 	})
 
@@ -1275,7 +1287,7 @@ func TestBindToInstanceInjection(t *testing.T) {
 	implements := di.NewImplements()
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindConstructor((*client)(nil), func() client {
+		di.BindConstructor[client](binder, func() client {
 			return &clientImpl{}
 		})
 	})
@@ -1285,7 +1297,7 @@ func TestBindToInstanceInjection(t *testing.T) {
 	}
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindSingleton((*proxy)(nil), &proxy{})
+		di.BindSingleton[*proxy](binder, &proxy{})
 	})
 
 	injector := implements.NewInjector(nil)
@@ -1313,7 +1325,7 @@ func TestBindToInstanceInjectionError(t *testing.T) {
 	}
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindSingleton((*proxy)(nil), &proxy{})
+		di.BindSingleton[*proxy](binder, &proxy{})
 	})
 
 	injector := implements.NewInjector(nil)
@@ -1331,11 +1343,11 @@ func TestInjectorRace(t *testing.T) {
 	implements := di.NewImplements()
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindConstructor((*client)(nil), func() client {
+		di.BindConstructor[client](binder, func() client {
 			return &clientImpl{}
 		})
 
-		binder.AddDecoratorOf((*client)(nil), func(injector di.Injector) {
+		di.AddDecoratorOf[*client](binder, func(injector di.Injector) {
 			injector.GetInstance((*client)(nil))
 		})
 	})
@@ -1343,11 +1355,11 @@ func TestInjectorRace(t *testing.T) {
 	injector := implements.NewInjector(nil)
 
 	go func() {
-		injector.GetInstance((*client)(nil))
+		di.GetInstance[client](injector)
 	}()
 
 	go func() {
-		injector.GetInstance((*client)(nil))
+		di.GetInstance[client](injector)
 	}()
 
 	time.Sleep(10 * time.Millisecond)
@@ -1379,7 +1391,7 @@ func TestInjectorNilConstructor(t *testing.T) {
 	implements := di.NewImplements()
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindConstructor((*client)(nil), func() *clientImpl {
+		di.BindConstructor[client](binder, func() *clientImpl {
 			return nil
 		})
 
@@ -1387,7 +1399,9 @@ func TestInjectorNilConstructor(t *testing.T) {
 
 	injector := implements.NewInjector(nil)
 
-	ret := injector.GetInstance((*client)(nil))
+	//	ret := injector.GetInstance((*client)(nil))
+
+	ret := di.GetInstance[client](injector)
 	if ret != nil {
 		t.Error("ret is not nil")
 	}
@@ -1404,30 +1418,30 @@ type starter interface{}
 func NotTestDecoratorPanic(t *testing.T) {
 	implements := di.NewImplements()
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindConstructor((*server)(nil), func() interface{} {
+		di.BindConstructor[*server](binder, func() *server {
 			fmt.Println("server created")
 			return &server{}
 		})
 
-		binder.BindConstructor((*mapper)(nil), func(server *server) interface{} {
+		di.BindConstructor[*mapper](binder, func(server *server) *mapper {
 			fmt.Println("mapper created")
 
 			return &mapper{}
 		})
 
-		binder.AddDecoratorOf((*server)(nil), func(ij di.Injector) {
+		di.AddDecoratorOf[*server](binder, func(ij di.Injector) {
 			fmt.Println("server decorated")
 
 			ij.GetInstance((*mapper)(nil))
 		})
 
-		binder.BindConstructor((*starter)(nil), func(server *server) interface{} {
+		di.BindConstructor[*starter](binder, func(server *server) interface{} {
 			fmt.Println("started")
 
 			return "started"
 		})
 
-		binder.BindConstructor((*client)(nil), func(mapper *mapper) interface{} {
+		di.BindConstructor[client](binder, func(mapper *mapper) interface{} {
 			fmt.Println("client created")
 
 			return &clientImpl{}
