@@ -1,6 +1,5 @@
-// +build go1.18
-
 //go:build go1.18
+// +build go1.18
 
 package di_test
 
@@ -1451,4 +1450,26 @@ func NotTestDecoratorPanic(t *testing.T) {
 	implements.NewInjectorWithTrace(nil, func(info *di.TraceInfo) {
 		fmt.Println(info)
 	})
+}
+
+func TestOptional(t *testing.T) {
+	implements := di.NewImplements()
+	implements.AddImplement("MyModule", &MyModule{})
+	implements.AddImplement("MyModule2", &MyModule2{})
+
+	loadingModuleList := []string{"MyModule", "MyModule2"}
+
+	injector := di.NewInjector(implements, loadingModuleList)
+	injector.SetProperty("config.file", "application.conf")
+
+	ins := di.GetInstanceOpt[Hello](injector)
+	if ins.IsDefined() == false {
+		t.Error("ins is empty")
+	}
+
+	ins2 := di.GetInstanceOpt[client](injector)
+	if ins2.IsDefined() != false {
+		t.Error("ins is not empty")
+	}
+
 }

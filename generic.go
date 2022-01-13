@@ -1,10 +1,14 @@
-// +build go1.18
-
 //go:build go1.18
+// +build go1.18
 
 package di
 
-import "reflect"
+import (
+	"reflect"
+
+	"github.com/csgura/fp"
+	"github.com/csgura/fp/option"
+)
 
 func GetInstance[T any](injector Injector) T {
 	var t T
@@ -23,72 +27,87 @@ func GetInstance[T any](injector Injector) T {
 	return t
 }
 
+func GetInstanceOpt[T any](injector Injector) fp.Option[T] {
+	var t T
+	if reflect.ValueOf(t).Kind() == reflect.Ptr {
+		ret := injector.GetInstance(t)
+		if ret != nil {
+			return option.Some(ret.(T))
+		}
+		return option.None[T]()
+	}
+
+	ret := injector.GetInstance(&t)
+	if ret != nil {
+		return option.Some(ret.(T))
+	}
+	return option.None[T]()
+}
+
 func GetInstancesOf[T any](injector Injector) []T {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
 		ret := []T{}
-		list :=	injector.GetInstancesOf(t)
+		list := injector.GetInstancesOf(t)
 		for _, v := range list {
-			ret = append(ret,v.(T))
+			ret = append(ret, v.(T))
 		}
-		return ret;
+		return ret
 	} else {
 		ret := []T{}
-		list :=	injector.GetInstancesOf(&t)
+		list := injector.GetInstancesOf(&t)
 		for _, v := range list {
-			ret = append(ret,v.(T))
+			ret = append(ret, v.(T))
 		}
-		return ret;
+		return ret
 	}
 }
 
-
-func BindProvider[T any](binder *Binder , fn func( inj Injector) T ) *Binding{
+func BindProvider[T any](binder *Binder, fn func(inj Injector) T) *Binding {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return binder.BindProvider( t, func(inj Injector) interface{} {
+		return binder.BindProvider(t, func(inj Injector) interface{} {
 			return fn(inj)
 		})
 	} else {
-		return binder.BindProvider( &t, func(inj Injector) interface{} {
+		return binder.BindProvider(&t, func(inj Injector) interface{} {
 			return fn(inj)
 		})
 	}
-	
+
 }
 
-func BindInterceptor[T any](binder *Binder , fn func( inj Injector, value T) T ) {
+func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		binder.BindInterceptor( t, func(inj Injector , value interface{}) interface{} {
+		binder.BindInterceptor(t, func(inj Injector, value interface{}) interface{} {
 			return fn(inj, value.(T))
 		})
 	} else {
-		binder.BindInterceptor( &t, func(inj Injector , value interface{}) interface{} {
+		binder.BindInterceptor(&t, func(inj Injector, value interface{}) interface{} {
 			return fn(inj, value.(T))
 		})
 	}
-	
+
 }
 
-func BindSingleton[T any](binder *Binder , singleton T) *Binding {
+func BindSingleton[T any](binder *Binder, singleton T) *Binding {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return binder.BindSingleton( t, singleton)
+		return binder.BindSingleton(t, singleton)
 	} else {
-		return binder.BindSingleton( &t, singleton)
+		return binder.BindSingleton(&t, singleton)
 	}
 }
 
-func BindConstructor[T any](binder *Binder , constructor interface{}) *Binding {
+func BindConstructor[T any](binder *Binder, constructor interface{}) *Binding {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return binder.BindConstructor( t, constructor)
+		return binder.BindConstructor(t, constructor)
 	} else {
-		return binder.BindConstructor( &t, constructor)
+		return binder.BindConstructor(&t, constructor)
 	}
 }
-
 
 type BindingTP[T any] struct {
 	binding *Binding
@@ -111,35 +130,34 @@ func (b BindingTP[T]) ToConstructor(constructor interface{}) BindingTP[T] {
 	return b
 }
 
-
 func (b BindingTP[T]) ShouldCreateBefore(tpe interface{}) BindingTP[T] {
 	b.binding.ShouldCreateBefore(tpe)
-	return b;
+	return b
 }
 
 func (b BindingTP[T]) AsEagerSingleton() BindingTP[T] {
 	b.binding.AsEagerSingleton()
-	return b;
+	return b
 }
 
 func Bind[T any](binder *Binder) BindingTP[T] {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return BindingTP[T]{binder.Bind( t)}
+		return BindingTP[T]{binder.Bind(t)}
 	} else {
-		return BindingTP[T]{binder.Bind( &t)}
+		return BindingTP[T]{binder.Bind(&t)}
 	}
 }
 
 func IfNotBinded[T any](binder *Binder) BindingTP[T] {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return BindingTP[T]{binder.IfNotBinded( t)}
+		return BindingTP[T]{binder.IfNotBinded(t)}
 	} else {
-		return BindingTP[T]{binder.IfNotBinded( &t)}
+		return BindingTP[T]{binder.IfNotBinded(&t)}
 	}
 }
- 
+
 func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
@@ -148,7 +166,6 @@ func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
 		binder.AddDecoratorOf(&t, fn)
 	}
 }
-
 
 func TypeOf[T any]() interface{} {
 	var t T
