@@ -11,7 +11,10 @@ import (
 	"time"
 
 	"github.com/csgura/di"
+	"github.com/csgura/fp"
 )
+
+type Nothing any
 
 type MyModule struct {
 }
@@ -550,7 +553,7 @@ type PrometheusPort int
 type PrometheusAddress string
 
 type Target struct {
-	Value          ValueInterface
+	Value          fp.Option[ValueInterface]
 	value          ValueInterface
 	NotNilValue    ValueInterface
 	Sub            SubStruct
@@ -566,6 +569,7 @@ type Target struct {
 	Port           PrometheusPort
 	Address        PrometheusAddress
 	Injector       di.Injector
+	ShouldNone     fp.Option[Nothing]
 }
 
 func TestInjectMembers(t *testing.T) {
@@ -603,12 +607,12 @@ func TestInjectMembers(t *testing.T) {
 		return
 	}
 
-	if target.Value == nil {
+	if target.Value.IsEmpty() {
 		t.Errorf("value not injected")
 		return
 	}
 
-	if target.Value.Value() != "Value" {
+	if target.Value.Get().Value() != "Value" {
 		t.Errorf("target.Value.Value() != Value")
 		return
 	}
@@ -684,6 +688,11 @@ func TestInjectMembers(t *testing.T) {
 
 	if target.Injector == nil {
 		t.Errorf("target.Injector == nil")
+		return
+	}
+
+	if target.ShouldNone.IsDefined() {
+		t.Errorf("target.ShouldNone is defined")
 		return
 	}
 }
@@ -837,22 +846,27 @@ func TestInjectCall(t *testing.T) {
 	})
 
 	injector := di.NewInjector(implements, []string{})
-	ret := injector.InjectAndCall(func(v1 ValueInterface, v2 Value1, ptr *SubStructPointer, port PrometheusPort) ValueInterface {
-		if v1 == nil {
-			t.Errorf("v1 == nil")
+	ret := injector.InjectAndCall(func(v1 fp.Option[ValueInterface], v2 Value1, ptr *SubStructPointer, port PrometheusPort, shouldNone fp.Option[Nothing]) ValueInterface {
+		if v1.IsEmpty() {
+			t.Fatal("v1 is empty")
 			return nil
 		}
 		if v2 == nil {
-			t.Errorf("v2 == nil")
+			t.Fatal("v2 == nil")
 			return nil
 		}
 
 		if ptr == nil {
-			t.Errorf("ptr == nil")
+			t.Fatal("ptr == nil")
 			return nil
 		}
 		if port != 8080 {
-			t.Errorf("port != 8080")
+			t.Fatal("port != 8080")
+			return nil
+		}
+
+		if shouldNone.IsDefined() {
+			t.Fatal("shouldNone is defined")
 			return nil
 		}
 

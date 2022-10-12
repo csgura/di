@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/csgura/fp/reflectfp"
 )
 
 // TraceType is trace event type
@@ -452,23 +454,41 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	args := []reflect.Value{}
 	for i := 0; i < ftype.NumIn(); i++ {
 		argtype := ftype.In(i)
+
+		optType := reflectfp.MatchOption(argtype)
+
 		bindtype := argtype
+		if optType.IsDefined() {
+			bindtype = reflect.PtrTo(optType.Get())
+		}
+
 		if bindtype.Kind() != reflect.Ptr {
 			bindtype = reflect.PtrTo(argtype)
 		}
 
 		binding := r.getBinding(bindtype)
-		if binding == nil && argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
+		if optType.IsEmpty() && binding == nil && argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
 			binding = r.createJitBinding(r.injector.binder, argtype, bindtype)
 		}
 		instance := r.getInstanceByBinding(binding)
 
-		if instance == nil {
-			fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
-			panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
+		if optType.IsDefined() {
+			if instance == nil {
+				args = append(args, reflectfp.None(argtype).Get())
+			} else {
+				somev := reflectfp.Some(argtype, reflect.ValueOf(instance))
+				args = append(args, somev.Get())
+			}
+
 		} else {
-			args = append(args, reflect.ValueOf(instance).Convert(argtype))
+			if instance == nil {
+				fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
+				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
+			} else {
+				args = append(args, reflect.ValueOf(instance).Convert(argtype))
+			}
 		}
+
 	}
 
 	resultValue := reflect.ValueOf(function).Call(args)
@@ -542,8 +562,20 @@ func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 
 		case reflect.Struct:
 			if field.CanSet() {
+
+				optType := reflectfp.MatchOption(fieldType.Type)
 				if explicitInject == false || hasInjectTag(fieldType.Tag).inject {
-					r.InjectMembers(field.Addr().Interface())
+					if optType.IsDefined() {
+						res := r.getInstanceByType(reflect.PtrTo(optType.Get()))
+						if res != nil {
+							field.Set(reflectfp.Some(fieldType.Type, reflect.ValueOf(res)).Get())
+						} else {
+							field.Set(reflectfp.None(fieldType.Type).Get())
+						}
+
+					} else {
+						r.InjectMembers(field.Addr().Interface())
+					}
 				}
 			}
 		case reflect.Ptr:
