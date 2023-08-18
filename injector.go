@@ -181,7 +181,7 @@ func (r *injectorContext) paninOnLoop(t reflect.Type) {
 			}
 
 		}
-		panic("dependency cycle : \n" + loopStr + "\n")
+		panic("dependency cycle : \n" + loopStr + "\n  -> " + t.String())
 	}
 }
 
@@ -191,9 +191,9 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 		referer = r.stack[len(r.stack)-1]
 	}
 
+	r.paninOnLoop(t)
 	r.stack = append(r.stack, t)
 
-	r.paninOnLoop(t)
 	r.loopCheck[t] = true
 
 	defer func() {

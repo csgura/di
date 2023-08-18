@@ -1460,6 +1460,9 @@ func NotTestDecoratorPanic(t *testing.T) {
 			return &clientImpl{}
 		}).AsEagerSingleton()
 
+		// starter -> server -> mapper 순서로 생성이 되어야 하는데
+		// client -> mapper -> server -> decorator of server -> mapper  순서로 진행되어
+		// dep cycle panic 이 발생
 	})
 	implements.NewInjectorWithTrace(nil, func(info *di.TraceInfo) {
 		fmt.Println(info)
