@@ -474,8 +474,9 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 
 		binding := r.getBinding(bindtype)
 		if binding != nil && lazyType.IsDefined() {
+			lazyCtx := injectorContext{r.injector, make(map[reflect.Type]bool), nil, nil, nil}
 			lazyv := reflectfp.LazyCall(argtype, func() reflect.Value {
-				instance := r.getInstanceByBinding(binding)
+				instance := lazyCtx.getInstanceByBinding(binding)
 				return reflect.ValueOf(instance)
 			})
 			args = append(args, lazyv.Get())
@@ -586,8 +587,9 @@ func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 						}
 
 					} else if valType, ok := reflectfp.MatchLazyEval(fieldType.Type).Unapply(); ok {
+						lazyCtx := injectorContext{r.injector, make(map[reflect.Type]bool), nil, nil, nil}
 						res := reflectfp.LazyCall(fieldType.Type, func() reflect.Value {
-							return reflect.ValueOf(r.getInstanceByType(reflect.PtrTo(valType)))
+							return reflect.ValueOf(lazyCtx.getInstanceByType(reflect.PtrTo(valType)))
 						})
 						field.Set(res.Get())
 					} else {
