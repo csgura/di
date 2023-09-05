@@ -1545,3 +1545,36 @@ func TestLazy(t *testing.T) {
 	h.Hello()
 
 }
+
+func TestLazyRace(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		di.Bind[Hello](binder).ToConstructor(func(cli lazy.Eval[client]) Hello {
+			fmt.Println("new Hello")
+			return &HelloCycle{cli}
+		}).AsEagerSingleton()
+
+		di.Bind[client](binder).ToConstructor(func(hello Hello) client {
+			fmt.Println("new client")
+			return &clientCycle{hello}
+		})
+
+		di.Bind[ValueInterface](binder).ToConstructor(func(r *LazyJit) ValueInterface {
+			return r
+		})
+	})
+	injector := di.NewInjector(implements, []string{})
+	fmt.Println("injector created")
+	done := make(chan bool)
+	go func() {
+		lj := di.GetInstance[ValueInterface](injector)
+		fmt.Println(lj.Value())
+
+		h := di.GetInstance[Hello](injector)
+		h.Hello()
+		done <- true
+	}()
+	<-done
+
+}

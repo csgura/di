@@ -462,9 +462,7 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 		bindtype := argtype
 		if optType.IsDefined() {
 			bindtype = reflect.PtrTo(optType.Get())
-		}
-
-		if lazyType.IsDefined() {
+		} else if lazyType.IsDefined() {
 			bindtype = reflect.PtrTo(lazyType.Get())
 		}
 
@@ -473,7 +471,7 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 		}
 
 		binding := r.getBinding(bindtype)
-		if binding != nil && lazyType.IsDefined() {
+		if binding != nil && optType.IsEmpty() && lazyType.IsDefined() {
 			lazyCtx := injectorContext{r.injector, make(map[reflect.Type]bool), nil, nil, nil}
 			lazyv := reflectfp.LazyCall(argtype, func() reflect.Value {
 				instance := lazyCtx.getInstanceByBinding(binding)
