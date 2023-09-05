@@ -455,6 +455,8 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	for i := 0; i < ftype.NumIn(); i++ {
 		argtype := ftype.In(i)
 
+		lazyType := reflectfp.MatchLazyEval(argtype)
+
 		optType := reflectfp.MatchOption(argtype)
 
 		bindtype := argtype
@@ -462,30 +464,42 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 			bindtype = reflect.PtrTo(optType.Get())
 		}
 
+		if lazyType.IsDefined() {
+			bindtype = reflect.PtrTo(lazyType.Get())
+		}
+
 		if bindtype.Kind() != reflect.Ptr {
 			bindtype = reflect.PtrTo(argtype)
 		}
 
 		binding := r.getBinding(bindtype)
-		if optType.IsEmpty() && binding == nil && argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
-			binding = r.createJitBinding(r.injector.binder, argtype, bindtype)
-		}
-		instance := r.getInstanceByBinding(binding)
-
-		if optType.IsDefined() {
-			if instance == nil {
-				args = append(args, reflectfp.None(argtype).Get())
-			} else {
-				somev := reflectfp.Some(argtype, reflect.ValueOf(instance))
-				args = append(args, somev.Get())
-			}
-
+		if binding != nil && lazyType.IsDefined() {
+			lazyv := reflectfp.LazyCall(argtype, func() reflect.Value {
+				instance := r.getInstanceByBinding(binding)
+				return reflect.ValueOf(instance)
+			})
+			args = append(args, lazyv.Get())
 		} else {
-			if instance == nil {
-				fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
-				panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
+			if optType.IsEmpty() && binding == nil && argtype.Kind() == reflect.Ptr && bindtype.Elem().Kind() == reflect.Struct && r.injector.binder.providers[bindtype] == nil {
+				binding = r.createJitBinding(r.injector.binder, argtype, bindtype)
+			}
+			instance := r.getInstanceByBinding(binding)
+
+			if optType.IsDefined() {
+				if instance == nil {
+					args = append(args, reflectfp.None(argtype).Get())
+				} else {
+					somev := reflectfp.Some(argtype, reflect.ValueOf(instance))
+					args = append(args, somev.Get())
+				}
+
 			} else {
-				args = append(args, reflect.ValueOf(instance).Convert(argtype))
+				if instance == nil {
+					fname := filepath.Base(runtime.FuncForPC(reflect.ValueOf(function).Pointer()).Name())
+					panic(fmt.Sprintf("%s is Not Binded. So Can't Inject argument of function %s at index %d", argtype.String(), fname, i))
+				} else {
+					args = append(args, reflect.ValueOf(instance).Convert(argtype))
+				}
 			}
 		}
 
@@ -562,17 +576,20 @@ func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 
 		case reflect.Struct:
 			if field.CanSet() {
-
-				optType := reflectfp.MatchOption(fieldType.Type)
 				if explicitInject == false || hasInjectTag(fieldType.Tag).inject {
-					if optType.IsDefined() {
-						res := r.getInstanceByType(reflect.PtrTo(optType.Get()))
+					if valType, ok := reflectfp.MatchOption(fieldType.Type).Unapply(); ok {
+						res := r.getInstanceByType(reflect.PtrTo(valType))
 						if res != nil {
 							field.Set(reflectfp.Some(fieldType.Type, reflect.ValueOf(res)).Get())
 						} else {
 							field.Set(reflectfp.None(fieldType.Type).Get())
 						}
 
+					} else if valType, ok := reflectfp.MatchLazyEval(fieldType.Type).Unapply(); ok {
+						res := reflectfp.LazyCall(fieldType.Type, func() reflect.Value {
+							return reflect.ValueOf(r.getInstanceByType(reflect.PtrTo(valType)))
+						})
+						field.Set(res.Get())
 					} else {
 						r.InjectMembers(field.Addr().Interface())
 					}

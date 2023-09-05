@@ -4,3 +4,5 @@ github.com/csgura/fp v0.0.2 h1:0WjneaFuupp16EgTYsOkiWBllRT2q0lvVUWOwwlkpMA=
 github.com/csgura/fp v0.0.2/go.mod h1:PzinwR5KnuJh/kKqS+s6tPnOvkIbMtx42C6pOwVhsHM=
 github.com/csgura/fp v0.0.3-0.20221012010607-94ce40c76fbe h1:LVScR8QOMP/TPUeGnZUlUlCB8nLdqrZVjLoG/b6WomA=
 github.com/csgura/fp v0.0.3-0.20221012010607-94ce40c76fbe/go.mod h1:PzinwR5KnuJh/kKqS+s6tPnOvkIbMtx42C6pOwVhsHM=
+github.com/csgura/fp v0.0.13-0.20230905021825-053547cbeb86 h1:T3Z3wGCeG5nCyfprJzesPANGE0dsrgQR+7b60ehrr1E=
+github.com/csgura/fp v0.0.13-0.20230905021825-053547cbeb86/go.mod h1:3OUCazWIhKwPV33MkPzopz2troTLF4q3KJKO61SiyPE=

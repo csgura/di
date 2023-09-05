@@ -12,6 +12,7 @@ import (
 
 	"github.com/csgura/di"
 	"github.com/csgura/fp"
+	"github.com/csgura/fp/lazy"
 )
 
 type Nothing any
@@ -1488,5 +1489,59 @@ func TestOptional(t *testing.T) {
 	if ins2.IsDefined() != false {
 		t.Error("ins is not empty")
 	}
+
+}
+
+type HelloCycle struct {
+	cli lazy.Eval[client]
+}
+
+// Hello implements Hello.
+func (r *HelloCycle) Hello() {
+	fmt.Println(r.cli.Get().Do("hello"))
+}
+
+type clientCycle struct {
+	hello Hello
+}
+
+// Do implements client.
+func (*clientCycle) Do(req string) string {
+	return fmt.Sprintf("Do %s\n", req)
+}
+
+type LazyJit struct {
+	Hello lazy.Eval[Hello]  `di:"inject"`
+	Cli   lazy.Eval[client] `di:"inject"`
+}
+
+// Value implements ValueInterface.
+func (r *LazyJit) Value() string {
+	return r.Cli.Get().Do("value")
+}
+
+func TestLazy(t *testing.T) {
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		di.Bind[Hello](binder).ToConstructor(func(cli lazy.Eval[client]) Hello {
+			return &HelloCycle{cli}
+		})
+
+		di.Bind[client](binder).ToConstructor(func(hello Hello) client {
+			return &clientCycle{hello}
+		})
+
+		di.Bind[ValueInterface](binder).ToConstructor(func(r *LazyJit) ValueInterface {
+			return r
+		})
+	})
+	injector := di.NewInjector(implements, []string{})
+
+	lj := di.GetInstance[ValueInterface](injector)
+	fmt.Println(lj.Value())
+
+	h := di.GetInstance[Hello](injector)
+	h.Hello()
 
 }
