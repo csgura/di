@@ -6,7 +6,11 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
+
+	"maps"
+	"slices"
 
 	"github.com/csgura/fp/reflectfp"
 )
@@ -94,16 +98,18 @@ type injectorImpl struct {
 }
 
 type injectorContext struct {
-	injector      *injectorImpl
+	injector *injectorImpl
+	// 다음 세개 변수가 multi thread safe 하지 않음.
 	loopCheck     map[reflect.Type]bool
 	stack         []reflect.Type
 	refererStack  []reflect.Type
 	traceCallback TraceCallback
+	lock          sync.Mutex
 }
 
 func (r *injectorImpl) GetInstance(ptrToType interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback, sync.Mutex{}}
 	return context.GetInstance(ptrToType)
 }
 
@@ -114,24 +120,24 @@ func (r *injectorImpl) GetInstancesOf(ptrToType interface{}) []interface{} {
 
 func (r *injectorImpl) getInstanceByType(t reflect.Type) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback, sync.Mutex{}}
 	return context.getInstanceByType(t)
 }
 
 func (r *injectorImpl) InjectMembers(ptrToStruct interface{}) {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback, sync.Mutex{}}
 	context.InjectMembers(ptrToStruct)
 }
 
 func (r *injectorImpl) InjectAndCall(function interface{}) interface{} {
 	//fmt.Println("impl getIns")
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback, sync.Mutex{}}
 	return context.InjectAndCall(function)
 }
 
 func (r *injectorImpl) InjectValue(ptrToInterface interface{}) {
-	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback}
+	context := injectorContext{r, make(map[reflect.Type]bool), nil, nil, r.traceCallback, sync.Mutex{}}
 	context.InjectValue(ptrToInterface)
 }
 
@@ -170,35 +176,50 @@ func (r *injectorContext) createJitBinding(binder *Binder, bindType reflect.Type
 	}
 }
 
-func (r *injectorContext) paninOnLoop(t reflect.Type) {
-	if r.loopCheck[t] == true {
-		loopStr := ""
-		for _, k := range r.stack {
-			if loopStr == "" {
-				loopStr = k.String()
-			} else {
-				loopStr = loopStr + "\n  -> " + k.String()
-			}
+func (r *injectorContext) withLock(f func()) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	f()
+}
 
+func (r *injectorContext) paninOnLoop(t reflect.Type) {
+
+	r.withLock(func() {
+		if r.loopCheck[t] == true {
+			loopStr := ""
+			for _, k := range r.stack {
+				if loopStr == "" {
+					loopStr = k.String()
+				} else {
+					loopStr = loopStr + "\n  -> " + k.String()
+				}
+
+			}
+			panic("dependency cycle : \n" + loopStr + "\n  -> " + t.String())
 		}
-		panic("dependency cycle : \n" + loopStr + "\n  -> " + t.String())
-	}
+	})
 }
 
 func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{} {
 	var referer reflect.Type
-	if len(r.stack) > 0 {
-		referer = r.stack[len(r.stack)-1]
-	}
 
 	r.paninOnLoop(t)
-	r.stack = append(r.stack, t)
 
-	r.loopCheck[t] = true
+	r.withLock(func() {
+		if len(r.stack) > 0 {
+			referer = r.stack[len(r.stack)-1]
+		}
+
+		r.stack = append(r.stack, t)
+
+		r.loopCheck[t] = true
+	})
 
 	defer func() {
-		r.stack = r.stack[0 : len(r.stack)-1]
-		delete(r.loopCheck, t)
+		r.withLock(func() {
+			r.stack = r.stack[0 : len(r.stack)-1]
+			delete(r.loopCheck, t)
+		})
 	}()
 
 	if list := r.injector.binder.creatingBefore[t]; list != nil {
@@ -272,13 +293,19 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 	}
 
 	var referer reflect.Type
-	if len(r.refererStack) > 0 {
-		referer = r.refererStack[len(r.refererStack)-1]
-	}
 
-	r.refererStack = append(r.refererStack, p.tpe)
+	r.withLock(func() {
+		if len(r.refererStack) > 0 {
+			referer = r.refererStack[len(r.refererStack)-1]
+		}
+
+		r.refererStack = append(r.refererStack, p.tpe)
+	})
+
 	defer func() {
-		r.refererStack = r.refererStack[0 : len(r.refererStack)-1]
+		r.withLock(func() {
+			r.refererStack = r.refererStack[0 : len(r.refererStack)-1]
+		})
 	}()
 
 	if r.traceCallback != nil && referer != p.tpe {
@@ -437,7 +464,13 @@ func isNil(v reflect.Value) bool {
 		return false
 	}
 }
+func (r *injectorContext) clone() *injectorContext {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
+	ret := injectorContext{r.injector, maps.Clone(r.loopCheck), slices.Clone(r.stack), slices.Clone(r.refererStack), r.traceCallback, sync.Mutex{}}
+	return &ret
+}
 func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 	ftype := reflect.TypeOf(function)
 	if ftype == nil {
@@ -472,8 +505,10 @@ func (r *injectorContext) InjectAndCall(function interface{}) interface{} {
 
 		binding := r.getBinding(bindtype)
 		if binding != nil && optType.IsEmpty() && lazyType.IsDefined() {
-			lazyCtx := injectorContext{r.injector, make(map[reflect.Type]bool), nil, nil, nil}
 			lazyv := reflectfp.LazyCall(argtype, func() reflect.Value {
+
+				lazyCtx := r.clone()
+
 				instance := lazyCtx.getInstanceByBinding(binding)
 				return reflect.ValueOf(instance)
 			})
@@ -585,8 +620,8 @@ func (r *injectorContext) InjectMembers(ptrToStruct interface{}) {
 						}
 
 					} else if valType, ok := reflectfp.MatchLazyEval(fieldType.Type).Unapply(); ok {
-						lazyCtx := injectorContext{r.injector, make(map[reflect.Type]bool), nil, nil, nil}
 						res := reflectfp.LazyCall(fieldType.Type, func() reflect.Value {
+							lazyCtx := r.clone()
 							return reflect.ValueOf(lazyCtx.getInstanceByType(reflect.PtrTo(valType)))
 						})
 						field.Set(res.Get())

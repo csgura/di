@@ -1546,6 +1546,43 @@ func TestLazy(t *testing.T) {
 
 }
 
+func TestLazyDeadlock(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	implements := di.NewImplements()
+	implements.AddBind(func(binder *di.Binder) {
+		di.Bind[Hello](binder).ToConstructor(func(cli lazy.Eval[client]) Hello {
+			fmt.Println("new Hello")
+
+			cli.Get()
+			return &HelloCycle{cli}
+		})
+
+		di.Bind[client](binder).ToConstructor(func(hello Hello) client {
+			fmt.Println("new client")
+
+			return &clientCycle{hello}
+		})
+
+		di.Bind[ValueInterface](binder).ToConstructor(func(r *LazyJit) ValueInterface {
+			return r
+		})
+	})
+	injector := di.NewInjector(implements, []string{})
+
+	lj := di.GetInstance[ValueInterface](injector)
+	fmt.Println(lj.Value())
+
+	h := di.GetInstance[Hello](injector)
+	h.Hello()
+
+}
+
 func TestLazyRace(t *testing.T) {
 
 	implements := di.NewImplements()
