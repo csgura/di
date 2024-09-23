@@ -81,22 +81,12 @@ func (b *Binding) AsNonSingleton() *Binding {
 	return b
 }
 
-// ShouldCreateBefore set creating order. this creation of instance should be performed before instance creation of the tpe type
-func (b *Binding) ShouldCreateBefore(ptrToType interface{}) *Binding {
-	if b.isDecoratorOf {
-		panic("component can't not be should create before others")
-	}
-	b.binder.shouldCreateBefore(reflect.TypeOf(ptrToType), b)
-	return b
-}
-
 type interceptorProvider func(injector Injector, instance interface{}) interface{}
 
 // Binder has bindings
 type Binder struct {
 	providers         map[reflect.Type]*Binding
 	providersFallback map[reflect.Type]*Binding
-	creatingBefore    map[reflect.Type][]*Binding
 	decorators        map[reflect.Type][]*Binding
 	interceptors      map[reflect.Type][]*Binding
 	ignoreDuplicate   bool
@@ -109,13 +99,6 @@ func safeAppend(list []*Binding, b *Binding) []*Binding {
 		}
 	}
 	return append(list, b)
-}
-
-func (b *Binder) shouldCreateBefore(t reflect.Type, binding *Binding) {
-	list := b.creatingBefore[t]
-
-	list = append(list, binding)
-	b.creatingBefore[t] = list
 }
 
 func (b *Binder) addDecorator(binding *Binding) {
@@ -205,12 +188,6 @@ func (b *Binder) merge(other *Binder, panicOnDup bool) {
 	for k, v := range other.providersFallback {
 		if b.providersFallback[k] == nil {
 			b.providersFallback[k] = v
-		}
-	}
-
-	for k, list := range other.creatingBefore {
-		for _, v := range list {
-			b.shouldCreateBefore(k, v)
 		}
 	}
 
@@ -337,7 +314,6 @@ func newBinder() *Binder {
 	ret.providers = make(map[reflect.Type]*Binding)
 	ret.providersFallback = make(map[reflect.Type]*Binding)
 
-	ret.creatingBefore = make(map[reflect.Type][]*Binding)
 	ret.decorators = make(map[reflect.Type][]*Binding)
 	ret.interceptors = make(map[reflect.Type][]*Binding)
 

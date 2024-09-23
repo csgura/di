@@ -222,12 +222,6 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 		})
 	}()
 
-	if list := r.injector.binder.creatingBefore[t]; list != nil {
-		for _, shouldBefore := range list {
-			r.getInstanceByType(shouldBefore.tpe)
-		}
-	}
-
 	before := time.Now()
 	//fmt.Printf("create instance of type %s\n", t)
 	if r.traceCallback != nil {

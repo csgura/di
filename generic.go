@@ -130,11 +130,6 @@ func (b BindingTP[T]) ToConstructor(constructor interface{}) BindingTP[T] {
 	return b
 }
 
-func (b BindingTP[T]) ShouldCreateBefore(tpe interface{}) BindingTP[T] {
-	b.binding.ShouldCreateBefore(tpe)
-	return b
-}
-
 func (b BindingTP[T]) AsEagerSingleton() BindingTP[T] {
 	b.binding.AsEagerSingleton()
 	return b
