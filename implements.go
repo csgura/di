@@ -125,7 +125,7 @@ func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback Tr
 	}
 
 	context := injectorContext{injector, make(map[reflect.Type]bool), nil, nil, traceCallback, sync.Mutex{}}
-	context.callDecorators(injectorType)
+	context.callDecorators(injectorType, injector)
 
 	for t := range binder.providers {
 		if binder.providers[t].isEager {

@@ -44,19 +44,24 @@ const (
 
 	// InstanceReturned is trace event
 	InstanceReturned
+
+	InstanceIntercepted
+
+	InstanceDecorated
 )
 
 // TraceInfo is trace message
 type TraceInfo struct {
-	TraceType        TraceType
-	RequestedType    reflect.Type
-	Referer          reflect.Type
-	ReturnedInstance interface{}
-	IsCreatedNow     bool
-	ElapsedTime      time.Duration
-	IsSingleton      bool
-	IsBinded         bool
-	IsEager          bool
+	TraceType           TraceType
+	RequestedType       reflect.Type
+	Referer             reflect.Type
+	ReturnedInstance    any
+	IsCreatedNow        bool
+	ElapsedTime         time.Duration
+	IsSingleton         bool
+	IsBinded            bool
+	IsEager             bool
+	InterceptedInstance any
 }
 
 func (r *TraceInfo) String() string {
@@ -235,11 +240,12 @@ func (r *injectorContext) createInstance(t reflect.Type, p *Binding) interface{}
 	after := time.Now()
 	if r.traceCallback != nil {
 		r.traceCallback(&TraceInfo{
-			TraceType:     InstanceCreated,
-			RequestedType: t,
-			Referer:       referer,
-			IsCreatedNow:  true,
-			ElapsedTime:   after.Sub(before),
+			TraceType:        InstanceCreated,
+			RequestedType:    t,
+			Referer:          referer,
+			ReturnedInstance: ret,
+			IsCreatedNow:     true,
+			ElapsedTime:      after.Sub(before),
 		})
 	}
 	return ret
@@ -249,20 +255,42 @@ func (r *injectorContext) wrapInterceptor(t reflect.Type, instance interface{}) 
 	ret := instance
 	if list := r.injector.binder.interceptors[t]; list != nil {
 		for _, interceptor := range list {
+			before := time.Now()
 			if w := interceptor.interceptor(r, ret); w != nil {
+				intercepted := ret
 				ret = w
+				if r.traceCallback != nil {
+					r.traceCallback(&TraceInfo{
+						TraceType:           InstanceIntercepted,
+						RequestedType:       t,
+						InterceptedInstance: intercepted,
+						ReturnedInstance:    ret,
+						ElapsedTime:         time.Since(before),
+					})
+				}
+
 			}
 		}
 	}
 	return ret
 }
 
-func (r *injectorContext) callDecorators(t reflect.Type) {
+func (r *injectorContext) callDecorators(t reflect.Type, ins any) {
 	if list := r.injector.binder.decorators[t]; list != nil {
 
 		for _, decorator := range list {
+			before := time.Now()
+
 			//fmt.Printf("call decorator of %s\n", t)
 			decorator.provider(r)
+			if r.traceCallback != nil {
+				r.traceCallback(&TraceInfo{
+					TraceType:        InstanceIntercepted,
+					RequestedType:    t,
+					ReturnedInstance: ins,
+					ElapsedTime:      time.Since(before),
+				})
+			}
 		}
 	}
 }
@@ -302,6 +330,8 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 		})
 	}()
 
+	before := time.Now()
+
 	if r.traceCallback != nil && referer != p.tpe {
 
 		r.traceCallback(&TraceInfo{
@@ -332,7 +362,7 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 					}
 				})
 				if created && p.instance != nil {
-					r.callDecorators(p.tpe)
+					r.callDecorators(p.tpe, p.instance)
 				}
 				ret := p.instance
 				return ret
@@ -356,6 +386,7 @@ func (r *injectorContext) getInstanceByBinding(p *Binding) interface{} {
 			IsSingleton:      p.isSingleton,
 			IsEager:          p.isEager,
 			ReturnedInstance: ret,
+			ElapsedTime:      time.Since(before),
 		})
 	}
 	return ret
