@@ -117,15 +117,16 @@ func (r *Implements) NewInjectorWithTrace(moduleNames []string, traceCallback Tr
 	var injectorIntf *Injector
 	injectorType := reflect.TypeOf(injectorIntf)
 
-	binder.providers[injectorType] = &Binding{
+	injectorBinding := &Binding{
 		binder:      binder,
 		tpe:         injectorType,
 		instance:    injector,
 		isSingleton: true,
 	}
+	binder.providers[injectorType] = injectorBinding
 
 	context := injectorContext{injector, make(map[reflect.Type]bool), nil, nil, traceCallback, sync.Mutex{}}
-	context.callDecorators(injectorType, injector)
+	context.callDecorators(injectorType, injectorBinding)
 
 	for t := range binder.providers {
 		if binder.providers[t].isEager {
