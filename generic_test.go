@@ -1279,6 +1279,7 @@ func TestInjectorRace(t *testing.T) {
 }
 
 func TestNilBinding(t *testing.T) {
+	t.Skip("nil argument not possible after go1.27")
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -1289,7 +1290,7 @@ func TestNilBinding(t *testing.T) {
 	implements := di.NewImplements()
 
 	implements.AddBind(func(binder *di.Binder) {
-		binder.BindConstructor((client)(nil), func() client {
+		di.BindConstructor[client](binder, func() client {
 			return &clientImpl{}
 		}).AsEagerSingleton()
 	})

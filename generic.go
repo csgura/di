@@ -63,20 +63,6 @@ func GetInstancesOf[T any](injector Injector) []T {
 	}
 }
 
-func BindProvider[T any](binder *Binder, fn func(inj Injector) T) *Binding {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return binder.BindProvider(t, func(inj Injector) interface{} {
-			return fn(inj)
-		})
-	} else {
-		return binder.BindProvider(&t, func(inj Injector) interface{} {
-			return fn(inj)
-		})
-	}
-
-}
-
 func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
@@ -89,24 +75,6 @@ func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
 		})
 	}
 
-}
-
-func BindSingleton[T any](binder *Binder, singleton T) *Binding {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return binder.BindSingleton(t, singleton)
-	} else {
-		return binder.BindSingleton(&t, singleton)
-	}
-}
-
-func BindConstructor[T any](binder *Binder, constructor interface{}) *Binding {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return binder.BindConstructor(t, constructor)
-	} else {
-		return binder.BindConstructor(&t, constructor)
-	}
 }
 
 type BindingTP[T any] struct {
@@ -133,15 +101,6 @@ func (b BindingTP[T]) ToConstructor(constructor interface{}) BindingTP[T] {
 func (b BindingTP[T]) AsEagerSingleton() BindingTP[T] {
 	b.binding.AsEagerSingleton()
 	return b
-}
-
-func Bind[T any](binder *Binder) BindingTP[T] {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return BindingTP[T]{binder.Bind(t)}
-	} else {
-		return BindingTP[T]{binder.Bind(&t)}
-	}
 }
 
 func IfNotBinded[T any](binder *Binder) BindingTP[T] {
