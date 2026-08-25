@@ -112,15 +112,6 @@ func IfNotBinded[T any](binder *Binder) BindingTP[T] {
 	}
 }
 
-func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		binder.AddDecoratorOf(t, fn)
-	} else {
-		binder.AddDecoratorOf(&t, fn)
-	}
-}
-
 func TypeOf[T any]() interface{} {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {

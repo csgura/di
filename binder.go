@@ -126,21 +126,6 @@ func (b *Binder) IfNotBinded(ptrToType interface{}) *Binding {
 	}
 }
 
-// AddDecoratorOf add customizing function which will be applied to the created singleton instance
-// if the type is not singleton, then the decorator callback will not be called
-func (b *Binder) AddDecoratorOf(ptrToType interface{}, decorator func(ij Injector)) {
-	t := reflect.TypeOf(ptrToType)
-	b.bind(&Binding{
-		binder:        b,
-		tpe:           t,
-		isDecoratorOf: true,
-		provider: func(ij Injector) interface{} {
-			decorator(ij)
-			return nil
-		},
-	})
-}
-
 func (b *Binder) bind(binding *Binding) {
 	if binding.isDecoratorOf {
 		b.addDecorator(binding)

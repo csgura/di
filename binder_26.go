@@ -43,6 +43,21 @@ func (b *Binder) BindSingleton(ptrToType interface{}, instance interface{}) *Bin
 
 }
 
+// AddDecoratorOf add customizing function which will be applied to the created singleton instance
+// if the type is not singleton, then the decorator callback will not be called
+func (b *Binder) AddDecoratorOf(ptrToType interface{}, decorator func(ij Injector)) {
+	t := reflect.TypeOf(ptrToType)
+	b.bind(&Binding{
+		binder:        b,
+		tpe:           t,
+		isDecoratorOf: true,
+		provider: func(ij Injector) interface{} {
+			decorator(ij)
+			return nil
+		},
+	})
+}
+
 func BindProvider[T any](binder *Binder, fn func(inj Injector) T) *Binding {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {
@@ -72,5 +87,14 @@ func BindConstructor[T any](binder *Binder, constructor interface{}) *Binding {
 		return binder.BindConstructor(t, constructor)
 	} else {
 		return binder.BindConstructor(&t, constructor)
+	}
+}
+
+func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
+	var t T
+	if reflect.ValueOf(t).Kind() == reflect.Ptr {
+		binder.AddDecoratorOf(t, fn)
+	} else {
+		binder.AddDecoratorOf(&t, fn)
 	}
 }

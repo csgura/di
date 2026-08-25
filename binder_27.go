@@ -47,6 +47,18 @@ func (b *Binder) BindSingleton[T any](instance interface{}) *Binding {
 
 }
 
+// AddDecoratorOf add customizing function which will be applied to the created singleton instance
+// if the type is not singleton, then the decorator callback will not be called
+func (b *Binder) AddDecoratorOf[T any](decorator func(ij Injector)) {
+	binding := b.Bind[T]()
+	binding.isDecoratorOf = true
+	binding.provider = func(ij Injector) interface{} {
+		decorator(ij)
+		return nil
+	}
+	b.bind(binding)
+}
+
 func BindProvider[T any](binder *Binder, fn func(inj Injector) T) *Binding {
 
 	return binder.BindProvider[T](func(inj Injector) interface{} {
@@ -65,4 +77,8 @@ func BindConstructor[T any](binder *Binder, constructor interface{}) *Binding {
 
 	return binder.BindConstructor[T](constructor)
 
+}
+
+func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
+	binder.AddDecoratorOf[T](fn)
 }
