@@ -90,7 +90,7 @@ func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
 }
 
 // BindInterceptor binds interceptor
-func (b *Binder) BindRegister[T any](
+func (b *Binder) AddRegister[T any](
 	registerFunc func(injector Injector, instance T),
 ) {
 	b.AddDecoratorOf[T](func(ij Injector) {
