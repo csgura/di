@@ -63,20 +63,6 @@ func GetInstancesOf[T any](injector Injector) []T {
 	}
 }
 
-func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		binder.BindInterceptor(t, func(inj Injector, value interface{}) interface{} {
-			return fn(inj, value.(T))
-		})
-	} else {
-		binder.BindInterceptor(&t, func(inj Injector, value interface{}) interface{} {
-			return fn(inj, value.(T))
-		})
-	}
-
-}
-
 type BindingTP[T any] struct {
 	binding *Binding
 }

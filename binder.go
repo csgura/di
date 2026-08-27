@@ -184,21 +184,6 @@ func (b *Binder) mergeFallbacks() {
 	}
 }
 
-// BindInterceptor binds interceptor
-func (b *Binder) BindInterceptor(
-	ptrToType interface{},
-	interceptorProvider func(injector Injector, instance interface{}) interface{},
-) {
-	t := reflect.TypeOf(ptrToType)
-	b.interceptors[t] = append(b.interceptors[t], &Binding{
-		binder:        b,
-		tpe:           t,
-		isInterceptor: true,
-		interceptor:   interceptorProvider,
-	})
-	//return b.Bind(ptrToType).ToInstance(instance)
-}
-
 func isImplements(realType reflect.Type, interfaceType reflect.Type) (eq bool) {
 	defer func() {
 		if r := recover(); r != nil {

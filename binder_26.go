@@ -98,3 +98,32 @@ func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
 		binder.AddDecoratorOf(&t, fn)
 	}
 }
+
+func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
+	var t T
+	if reflect.ValueOf(t).Kind() == reflect.Ptr {
+		binder.BindInterceptor(t, func(inj Injector, value interface{}) interface{} {
+			return fn(inj, value.(T))
+		})
+	} else {
+		binder.BindInterceptor(&t, func(inj Injector, value interface{}) interface{} {
+			return fn(inj, value.(T))
+		})
+	}
+
+}
+
+// BindInterceptor binds interceptor
+func (b *Binder) BindInterceptor(
+	ptrToType interface{},
+	interceptorProvider func(injector Injector, instance interface{}) interface{},
+) {
+	t := reflect.TypeOf(ptrToType)
+	b.interceptors[t] = append(b.interceptors[t], &Binding{
+		binder:        b,
+		tpe:           t,
+		isInterceptor: true,
+		interceptor:   interceptorProvider,
+	})
+	//return b.Bind(ptrToType).ToInstance(instance)
+}

@@ -82,3 +82,36 @@ func BindConstructor[T any](binder *Binder, constructor interface{}) *Binding {
 func AddDecoratorOf[T any](binder *Binder, fn func(injector Injector)) {
 	binder.AddDecoratorOf[T](fn)
 }
+
+func BindInterceptor[T any](binder *Binder, fn func(inj Injector, value T) T) {
+
+	binder.BindInterceptor[T](fn)
+
+}
+
+// BindInterceptor binds interceptor
+func (b *Binder) BindRegister[T any](
+	registerFunc func(injector Injector, instance T),
+) {
+	b.AddDecoratorOf[T](func(ij Injector) {
+		ins := GetInstance[T](ij)
+		registerFunc(ij, ins)
+	})
+}
+
+// BindInterceptor binds interceptor
+func (b *Binder) BindInterceptor[T any](
+	interceptorProvider func(injector Injector, instance T) T,
+) {
+	binding := b.Bind[T]()
+	t := binding.tpe
+	b.interceptors[t] = append(b.interceptors[t], &Binding{
+		binder:        b,
+		tpe:           t,
+		isInterceptor: true,
+		interceptor: func(inj Injector, value interface{}) interface{} {
+			return interceptorProvider(inj, value.(T))
+		},
+	})
+	//return b.Bind(ptrToType).ToInstance(instance)
+}
