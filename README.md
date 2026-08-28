@@ -16,10 +16,10 @@ type BillingModule struct {
 }
  
 func (r *BillingModule) Configure ( binder *di.Binder ) {
-    binder.BindSingleton((*TransactionLog)(nil), NewDBTransactionLog())
+    binder.BindSingleton[TransactionLog](NewDBTransactionLog())
 
     // or you can use Guice style binding code
-    binder.Bind((*TransactionLog)(nil)).ToInstance(NewDBTransactionLog());
+    binder.Bind[TransactionLog]().ToInstance(NewDBTransactionLog());
 
 }
 ```
@@ -32,27 +32,27 @@ If a module has dependencies with other modules
 
  func (r *BillingModule) Configure ( binder *di.Binder ) {
     provider := func(injector di.Injector) interface {} {
-        connection := injector.GetInstance((*Connection)(nil)).(Connection)
+        connection := di.GetInstance[Connection](injector)
         ret := NewDatabaseTransactionLog(connection)
         return ret
     }
  
-    binder.BindProvider((*TransactionLog)(nil), provider)
+    binder.BindProvider[TransactionLog](provider)
 
     // or you can use Guice style binding code
-    binder.Bind((*TransactionLog)(nil)).ToProvider(provider);
+    binder.Bind[TransactionLog]().ToProvider(provider);
 
 }
 ```
 
 ### Non singleton
 ```go
-binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsNonSingleton();
+binder.Bind[TransactionLognil]().ToProvider(provider).AsNonSingleton();
 ```
 
 ### Eager singleton
 ```go
-binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsEagerSingleton();
+binder.Bind[TransactionLognil]().ToProvider(provider).AsEagerSingleton();
 ```
 
 ## 1.3 Constructor Binding
@@ -62,11 +62,11 @@ binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsEagerSingleton();
 func NewDatabaseTransactionLog( connection DatabaseConnection ) DatabaseTransactionLog
  
 // bind TransactionLog to construct func
-binder.Bind((*TransactionLog)(nil)).ToConstructor(NewDatabaseTransactionLog);
+binder.Bind[TransactionLognil]().ToConstructor(NewDatabaseTransactionLog);
 
 
 // above Bind code is equivalent to below code
-binder.BindProvider((*TransactionLog)(nil),func(injector di.Injector) interface{} {
+binder.BindProvider[TransactionLog](func(injector di.Injector) interface{} {
     return injector.InjectAndCall(NewDatabaseTransactionLog)
 })
 ```
@@ -118,7 +118,7 @@ impls.AddImplement("OtherModule", &OtherModule{})
 
 // this is anonymous module. always configured
 impls.AddBind(func(binder *di.Binder) {
-    binder.BindSingleton((*Config)(nil), cfg)
+    binder.BindSingleton[Config](cfg)
 })
 
 injector := impls.NewInjector(enabled)
@@ -135,13 +135,13 @@ modules = [
 
 # 4. Get Instance
 ```go
-log := injector.GetInstance((*TransactionLog)(nil)).(TransactionLog)
+log := di.GetInstance[TransactionLog](injector)
 ```
 
 # 5. Iteration of Singletons
 If you want to call Close() function of every singleton object that implements io.Closer and created by injector
 ```go
-list := injector.GetInstancesOf((*io.Closer)(nil))
+list := di.GetInstancesOf[io.Closer](injector)
 
 for _, ins := range list {
 	c := ins.(io.Closer)
@@ -163,7 +163,7 @@ public class BillingModule extends AbstractModule {
 ### di package
 ```go
 func (r *BillingModule) Configure ( binder *di.Binder ) {
-    binder.Bind((*TransactionLog)(nil)).ToInstance(NewDBTransactionLog());    
+    binder.Bind[TransactionLognil]().ToInstance(NewDBTransactionLog());    
 }
 ```
 
@@ -212,12 +212,12 @@ public class BillingModule extends AbstractModule {
 ```go
 func (r *BillingModule) Configure ( binder *di.Binder ) {
     provider := func(injector di.Injector) interface {} {
-        connection := injector.GetInstance((*Connection)(nil)).(Connection)
+        connection := di.GetInstance[Connection](injector)
         ret := NewDatabaseTransactionLog(connection)
         return ret
     }
 
-    binder.Bind((*TransactionLog)(nil)).ToProvider(provider);
+    binder.Bind[TransactionLognil]().ToProvider(provider);
 }
 ```
 
@@ -235,7 +235,7 @@ bind(TransactionLog.class)
 ```go
 func NewDatabaseTransactionLog( connection DatabaseConnection ) DatabaseTransactionLog
  
-binder.Bind((*TransactionLog)(nil)).ToConstructor(NewDatabaseTransactionLog);
+binder.Bind[TransactionLognil]().ToConstructor(NewDatabaseTransactionLog);
 ```
 
 ## 6.5 Binding Scope
@@ -257,16 +257,16 @@ bind(TransactionLog.class).to(InMemoryTransactionLog.class)
 ### di package
 * Singleton ( default )
 ```go
-binder.Bind((*TransactionLog)(nil)).ToProvider(provider);
+binder.Bind[TransactionLognil]().ToProvider(provider);
 ```
 * Eager singleton
 ```go
-binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsEagerSingleton();
+binder.Bind[TransactionLognil]().ToProvider(provider).AsEagerSingleton();
 ```
 
 * Non singleton ( not default )
 ```go
-binder.Bind((*TransactionLog)(nil)).ToProvider(provider).AsNonSingleton();
+binder.Bind[TransactionLognil]().ToProvider(provider).AsNonSingleton();
 ```
 
 ## 6.6 Injector Creation
@@ -299,7 +299,7 @@ sorry. it is scala code
 ### di package
 getBindings method not available, but GetInstancesOf method is available to iterate all singleton which assignable to the type
 ```go
-list := injector.GetInstancesOf((*io.Closer)(nil))
+list := di.GetInstancesOf[io.Closer](injector)
 for _, ins := range list {
     c := ins.(io.Closer)
     c.Close()
@@ -321,7 +321,7 @@ injector.injectMembers( objref )
 use `di:"inject"` tag to inject member 
 ```go
 type SomeClass struct {
-    config     Config   `di:"inject"`
+    Config     Config   `di:"inject"`
 }
  
 obj := SomeClass{}
@@ -352,11 +352,11 @@ type CreditCardProcessor interface {}
 type PayPal CreditCardProcessor
 type Checkout CreditCardProcessor
  
-binder.Bind((*PayPal)(nil)).ToProvider(NewPayPalCreditCardProcessor);
-binder.Bind((*Checkout)(nil)).ToProvider(NewCheckoutCreditCardProcessor);
+binder.Bind[PayPal]().ToProvider(NewPayPalCreditCardProcessor);
+binder.Bind[Checkout]().ToProvider(NewCheckoutCreditCardProcessor);
  
 
-payPal := injector.GetInstance((*PayPal)(nil)).(CreditCardProcessor)
+payPal := di.GetInstance[PayPal](injector)
 ```
 
 ## 6.10 Untargetted Bindings
@@ -369,7 +369,7 @@ bind(AnotherConcreteClass.class).in(Singleton.class);
 ### di package
 Not Supported. Use Instance Binding or Provider Binding
 ```go
-binder.Bind((*MyConcreteClass)(nil).ToInstance(&MyConcreteClass{})
+binder.Bind[*MyConcreteClass]().ToInstance(&MyConcreteClass{})
 ```
 
 ## 6.11 Just-In-Time Binding  ( aka JIT Binding or implicit Binding )
