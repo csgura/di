@@ -115,3 +115,19 @@ func (b *Binder) BindInterceptor[T any](
 	})
 	//return b.Bind(ptrToType).ToInstance(instance)
 }
+
+// IfNotBinded returns Binding that will used if there are no other binding for tpe type
+func (b *Binder) IfNotBinded[T any]() BindingTP[T] {
+	binding := b.Bind[T]()
+	t := binding.tpe
+	return BindingTP[T]{&Binding{
+		binder:      b,
+		tpe:         t,
+		isSingleton: true,
+		isFallback:  true,
+	}}
+}
+
+func IfNotBinded[T any](binder *Binder) BindingTP[T] {
+	return binder.IfNotBinded[T]()
+}

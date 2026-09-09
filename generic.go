@@ -89,15 +89,6 @@ func (b BindingTP[T]) AsEagerSingleton() BindingTP[T] {
 	return b
 }
 
-func IfNotBinded[T any](binder *Binder) BindingTP[T] {
-	var t T
-	if reflect.ValueOf(t).Kind() == reflect.Ptr {
-		return BindingTP[T]{binder.IfNotBinded(t)}
-	} else {
-		return BindingTP[T]{binder.IfNotBinded(&t)}
-	}
-}
-
 func TypeOf[T any]() interface{} {
 	var t T
 	if reflect.ValueOf(t).Kind() == reflect.Ptr {

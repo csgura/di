@@ -115,17 +115,6 @@ func (b *Binder) addInterceptor(binding *Binding) {
 	b.interceptors[binding.tpe] = list
 }
 
-// IfNotBinded returns Binding that will used if there are no other binding for tpe type
-func (b *Binder) IfNotBinded(ptrToType interface{}) *Binding {
-	t := reflect.TypeOf(ptrToType)
-	return &Binding{
-		binder:      b,
-		tpe:         t,
-		isSingleton: true,
-		isFallback:  true,
-	}
-}
-
 func (b *Binder) bind(binding *Binding) {
 	if binding.isDecoratorOf {
 		b.addDecorator(binding)
